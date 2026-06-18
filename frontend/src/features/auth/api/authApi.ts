@@ -1,7 +1,6 @@
 import { apiClient } from "../../../lib/apiClient";
 import type {
   AuthResponse,
-  AuthUser,
   SignInPayload,
   SignUpPayload,
 } from "../types/auth.types";

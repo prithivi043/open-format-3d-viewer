@@ -1,10 +1,4 @@
-import {
-  getAccessToken,
-  getRefreshToken,
-  setAccessToken,
-  setRefreshToken,
-  clearTokens,
-} from "../../../lib/token";
+import { getRefreshToken, setTokens, clearTokens } from "../../../lib/token";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -32,8 +26,6 @@ export async function refreshAccessToken(): Promise<string> {
 
   const json = await res.json();
 
-  console.log("REFRESH RESPONSE:", json);
-
   const newAccess = json.access_token ?? json.data?.access_token;
   const newRefresh = json.refresh_token ?? json.data?.refresh_token;
 
@@ -41,11 +33,7 @@ export async function refreshAccessToken(): Promise<string> {
     throw new Error("No access token returned");
   }
 
-  setAccessToken(newAccess);
-
-  if (newRefresh) {
-    setRefreshToken(newRefresh);
-  }
+  setTokens(newAccess, newRefresh ?? refreshToken);
 
   return newAccess;
 }

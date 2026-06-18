@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -429,8 +429,8 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
 
-  const initials = user?.name?.charAt(0).toUpperCase() ?? "U";
-  const firstName = user?.name?.split(" ")[0] ?? "there";
+  const initials = user?.full_name?.charAt(0).toUpperCase() ?? "U";
+  const firstName = user?.full_name?.split(" ")[0] ?? "there";
 
   // Greeting based on hour
   const hour = new Date().getHours();
@@ -656,7 +656,7 @@ export default function DashboardPage() {
                 className="text-[11px] font-medium truncate"
                 style={{ color: TEXT.primary }}
               >
-                {user?.name ?? "User"}
+                {user?.full_name ?? "User"}
               </p>
               <p
                 className="font-mono text-[8px] mt-0.5"

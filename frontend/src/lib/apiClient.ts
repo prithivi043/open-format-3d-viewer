@@ -85,7 +85,7 @@ export async function apiClient<T>(
       }
 
       token = await refreshPromise;
-      res = await execute(token);
+      res = await execute(token ?? undefined);
     } catch {
       clearTokens();
       throw new Error("Session expired. Please login again.");
