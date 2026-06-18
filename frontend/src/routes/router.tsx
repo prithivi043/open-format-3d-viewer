@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
 
 const AuthPage = lazy(() => import("../pages/auth/AuthPage"));
@@ -18,6 +18,10 @@ function Loader() {
 
 export const router = createBrowserRouter([
   {
+    path: "/",
+    element: <Navigate to="/register" replace />,
+  },
+  {
     path: "/login",
     element: (
       <Suspense fallback={<Loader />}>
@@ -34,7 +38,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    element: <ProtectedRoute />, // Protect all child routes
+    element: <ProtectedRoute />,
     children: [
       {
         path: "/dashboard",
