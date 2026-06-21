@@ -2,9 +2,21 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
 
+function RouteError() {
+  return (
+    <div className="h-screen flex items-center justify-center bg-[#f8f8fc] p-4">
+      Error
+    </div>
+  );
+}
+
 const AuthPage = lazy(() => import("../pages/auth/AuthPage"));
-const DashboardPage = lazy(() => import("../pages/dashboard/DashboardPage"));
-const ProjectList = lazy(() => import("../pages/projects/ProjectList"));
+const UserProfilePage = lazy(() => import("../pages/auth/UserProfilePage"));
+const DashboardLayout = lazy(
+  () => import("../pages/dashboard/DashboardLayout"),
+);
+const DashboardHome = lazy(() => import("../pages/dashboard/DashboardPage"));
+const ProjectListPage = lazy(() => import("../pages/projects/ProjectListPage"));
 const ProjectDetailPage = lazy(
   () => import("../pages/projects/ProjectDetailPage"),
 );
@@ -21,6 +33,7 @@ export const router = createBrowserRouter([
     path: "/",
     element: <Navigate to="/register" replace />,
   },
+
   {
     path: "/login",
     element: (
@@ -29,6 +42,7 @@ export const router = createBrowserRouter([
       </Suspense>
     ),
   },
+
   {
     path: "/register",
     element: (
@@ -37,25 +51,60 @@ export const router = createBrowserRouter([
       </Suspense>
     ),
   },
+
   {
     element: <ProtectedRoute />,
+    errorElement: <RouteError />,
     children: [
+      // Dashboard shell for /dashboard
       {
         path: "/dashboard",
         element: (
           <Suspense fallback={<Loader />}>
-            <DashboardPage />
+            <DashboardLayout />
           </Suspense>
         ),
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<Loader />}>
+                <DashboardHome />
+              </Suspense>
+            ),
+          },
+        ],
       },
+
+      // Same dashboard shell for /projects
       {
         path: "/projects",
         element: (
           <Suspense fallback={<Loader />}>
-            <ProjectList />
+            <DashboardLayout />
+          </Suspense>
+        ),
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<Loader />}>
+                <ProjectListPage />
+              </Suspense>
+            ),
+          },
+        ],
+      },
+
+      {
+        path: "/me",
+        element: (
+          <Suspense fallback={<Loader />}>
+            <UserProfilePage />
           </Suspense>
         ),
       },
+
       {
         path: "/projects/:id",
         element: (
@@ -64,6 +113,7 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
+
       {
         path: "/viewer/:modelId",
         element: (

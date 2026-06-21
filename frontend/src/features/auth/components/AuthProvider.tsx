@@ -1,55 +1,45 @@
 import { useEffect, type ReactNode } from "react";
 import { useAuthStore } from "../store/authStore";
-import { refreshToken } from "../api/authApi";
-import { getRefreshToken, getAccessToken } from "../../../lib/token";
+import { getCurrentUser } from "../api/authApi";
 
 interface Props {
   children: ReactNode;
 }
 
+const PUBLIC_ROUTES = ["/login", "/register"];
+
 export default function AuthProvider({ children }: Props) {
-  const setAuth = useAuthStore((state) => state.setAuth);
-  const logout = useAuthStore((state) => state.logout);
-  const setLoading = useAuthStore((state) => state.setLoading);
-  const isAuthLoading = useAuthStore((state) => state.isAuthLoading);
+  const setUser = useAuthStore((s) => s.setUser);
+  const setLoading = useAuthStore((s) => s.setLoading);
+  const isAuthLoading = useAuthStore((s) => s.isAuthLoading);
 
   useEffect(() => {
-    const bootstrapAuth = async () => {
+    const pathname = window.location.pathname;
+
+    async function bootstrap() {
+      if (PUBLIC_ROUTES.includes(pathname)) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const access = getAccessToken();
-        const refresh = getRefreshToken();
-
-        if (access) {
-          useAuthStore.setState({
-            accessToken: access,
-            isAuthenticated: true,
-            isAuthLoading: false,
-          });
-          return;
-        }
-
-        if (!refresh) {
-          logout();
-          return;
-        }
-
-        const authData = await refreshToken(refresh);
-        setAuth(authData);
+        const user = await getCurrentUser();
+        setUser(user);
       } catch (error) {
-        console.error(error);
-        logout();
+        console.log("No active session", error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
-    };
+    }
 
-    bootstrapAuth();
-  }, []);
+    bootstrap();
+  }, [setUser, setLoading]);
 
   if (isAuthLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-[#060816] text-white">
-        Initializing Session...
+        Loading session...
       </div>
     );
   }

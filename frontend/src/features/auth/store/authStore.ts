@@ -1,50 +1,44 @@
 import { create } from "zustand";
-import type { AuthResponse } from "../types/auth.types";
-import { clearTokens, setTokens, getAccessToken } from "../../../lib/token";
+import type { AuthUser } from "../types/auth.types";
 
 type AuthState = {
-  user: AuthResponse["user"] | null;
-  accessToken: string | null;
+  user: AuthUser | null;
   isAuthenticated: boolean;
   isAuthLoading: boolean;
 
-  setAuth: (data: AuthResponse) => void;
-  setLoading: (value: boolean) => void;
+  setUser: (user: AuthUser | null) => void;
+  setLoading: (loading: boolean) => void;
   logout: () => void;
+  resetAuth: () => void;
 };
-
-const initialToken = getAccessToken();
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  accessToken: initialToken,
-  isAuthenticated: !!initialToken,
+  isAuthenticated: false,
   isAuthLoading: true,
 
-  setAuth: (data) => {
-    setTokens(data.accessToken, data.refreshToken);
-
+  setUser: (user) =>
     set({
-      user: data.user,
-      accessToken: data.accessToken,
-      isAuthenticated: true,
-      isAuthLoading: false,
-    });
-  },
-
-  setLoading: (value) =>
-    set({
-      isAuthLoading: value,
+      user,
+      isAuthenticated: user !== null,
     }),
 
-  logout: () => {
-    clearTokens();
+  setLoading: (loading) =>
+    set({
+      isAuthLoading: loading,
+    }),
 
+  logout: () =>
     set({
       user: null,
-      accessToken: null,
       isAuthenticated: false,
       isAuthLoading: false,
-    });
-  },
+    }),
+
+  resetAuth: () =>
+    set({
+      user: null,
+      isAuthenticated: false,
+      isAuthLoading: true,
+    }),
 }));

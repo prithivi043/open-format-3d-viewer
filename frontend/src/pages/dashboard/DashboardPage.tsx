@@ -1,980 +1,694 @@
-import { useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
+
 import { useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
   Folder,
   Box,
-  BarChart2,
-  Plus,
-  Upload,
-  Search,
   Bell,
-  Settings,
   Eye,
   MoreHorizontal,
   TrendingUp,
   Database,
-  Activity,
-  ArrowRight,
+  Search,
+  Users,
   Building2,
   Train,
-  Home,
-  Users,
+  Package,
   Cloud,
-  Loader,
+  ChevronRight,
 } from "lucide-react";
 import { useAuthStore } from "../../features/auth/store/authStore";
+import { useProjects } from "../../features/projects/hooks/useProjects";
+import ProjectModal from "../../features/projects/components/ProjectModal";
 
-// ─── Types ────────────────────────────────────────────────
-interface Project {
+interface DashboardProject {
   id: string;
   name: string;
   models: number;
+  members: number;
   status: "Ready" | "Processing" | "Draft";
   updatedAt: string;
   icon: React.ReactNode;
-  color: "purple" | "teal" | "amber" | "gray";
+  accentBg: string;
+  accentIcon: string;
+  thumbGradient: string;
 }
 
-// ─── Design tokens ────────────────────────────────────────
-// FIX 1: 3 clear surface levels instead of 5 near-identical darks
-const BG = {
-  page: "#05080f", // deepest — page canvas
-  sidebar: "#080c18", // raised — sidebar, topbar
-  surface: "#0b0f1a", // cards, rows
-  border: "#1c2136", // borders — visible but not loud
-  borderHover: "#262c42", // hover state borders
-} as const;
-
-// FIX 2: 4-level text hierarchy with semantic meaning
-const TEXT = {
-  primary: "#dde0f0", // names, values, headings
-  label: "#8a90ac", // section labels, eyebrows
-  muted: "#555b78", // meta, secondary info
-  ghost: "#3a3f58", // decorative only — dots, timestamps
-} as const;
-
-const ACCENT = {
-  purple: { bg: "#12153a", text: "#7f77dd", solid: "#534AB7" },
-  teal: { bg: "#081a10", text: "#1D9E75", solid: "#1D9E75" },
-  amber: { bg: "#160f04", text: "#BA7517", solid: "#BA7517" },
-  gray: { bg: "#0d0d14", text: "#555b78", solid: "#3a3f58" },
-} as const;
-
-const STATUS_STYLE = {
-  Ready: "bg-[#081a10] text-[#1D9E75]",
-  Processing: "bg-[#160f04] text-[#BA7517]",
-  Draft: "bg-[#0d0d14] text-[#555b78] border border-[#1c2136]",
-} as const;
-
-// ─── Wireframe cube ───────────────────────────────────────
-function WireCube({ size = 28 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden="true"
-    >
-      <rect
-        x="4"
-        y="3"
-        width="13"
-        height="13"
-        rx="1"
-        stroke="#534AB7"
-        strokeWidth="1.2"
-        fill="none"
-      />
-      <rect
-        x="13"
-        y="7"
-        width="13"
-        height="13"
-        rx="1"
-        stroke="#534AB7"
-        strokeWidth="0.8"
-        strokeDasharray="2 1.5"
-        fill="none"
-        opacity="0.5"
-      />
-      <line
-        x1="4"
-        y1="3"
-        x2="13"
-        y2="7"
-        stroke="#534AB7"
-        strokeWidth="0.9"
-        opacity="0.6"
-      />
-      <line
-        x1="17"
-        y1="3"
-        x2="26"
-        y2="7"
-        stroke="#534AB7"
-        strokeWidth="0.9"
-        opacity="0.6"
-      />
-      <line
-        x1="4"
-        y1="16"
-        x2="13"
-        y2="20"
-        stroke="#534AB7"
-        strokeWidth="0.9"
-        opacity="0.6"
-      />
-      <line
-        x1="17"
-        y1="16"
-        x2="26"
-        y2="20"
-        stroke="#534AB7"
-        strokeWidth="0.9"
-        opacity="0.6"
-      />
-      <circle cx="4" cy="3" r="1.5" fill="#534AB7" />
-      <circle cx="17" cy="3" r="1.5" fill="#534AB7" />
-      <circle cx="4" cy="16" r="1.5" fill="#534AB7" />
-      <circle cx="17" cy="16" r="1.5" fill="#534AB7" />
-      <circle cx="13" cy="7" r="1.2" fill="#534AB7" opacity="0.55" />
-      <circle cx="26" cy="7" r="1.2" fill="#534AB7" opacity="0.55" />
-      <circle cx="26" cy="20" r="1.2" fill="#534AB7" opacity="0.55" />
-      <circle cx="13" cy="20" r="1.2" fill="#534AB7" opacity="0.55" />
-    </svg>
-  );
+interface ActivityItem {
+  file: string;
+  action: string;
+  time: string;
+  dotColor: string;
 }
 
-// ─── System status ────────────────────────────────────────
-function SystemStatus() {
-  return (
-    <div
-      className="flex items-center gap-2 px-4 py-[7px]"
-      style={{ borderBottom: `0.5px solid ${BG.border}`, background: BG.page }}
-    >
-      <span className="relative flex h-[5px] w-[5px]">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#1D9E75] opacity-40" />
-        <span className="relative inline-flex h-[5px] w-[5px] rounded-full bg-[#1D9E75]" />
-      </span>
-      <span
-        className="font-mono text-[8px] uppercase tracking-[0.14em]"
-        style={{ color: "#1D9E75" }}
-      >
-        All Systems Nominal
-      </span>
-    </div>
-  );
+const ACCENT = [
+  {
+    bg: "#EEEDFE",
+    icon: "#534AB7",
+    thumb: "linear-gradient(135deg,#e8e4ff,#d0ccf8)",
+  },
+  {
+    bg: "#e1f5ee",
+    icon: "#1D9E75",
+    thumb: "linear-gradient(135deg,#ddf3ec,#b8e8d8)",
+  },
+  {
+    bg: "#faeeda",
+    icon: "#BA7517",
+    thumb: "linear-gradient(135deg,#fff5e0,#fde5b0)",
+  },
+  {
+    bg: "#e6f1fb",
+    icon: "#378ADD",
+    thumb: "linear-gradient(135deg,#e0eeff,#bed3f7)",
+  },
+] as const;
+
+const ICONS = [
+  <Building2 size={18} />,
+  <Box size={18} />,
+  <Package size={18} />,
+  <Train size={18} />,
+];
+
+const STATUS_CLASS: Record<string, string> = {
+  Ready: "bg-[#e1f5ee] text-[#0F6E56]",
+  Processing: "bg-[#faeeda] text-[#854F0B]",
+  Draft: "bg-gray-100 text-gray-500 border border-gray-200",
+};
+
+const ACTIVITY_COLORS = ["#534AB7", "#1D9E75", "#BA7517", "#378ADD", "#E24B4A"];
+
+// ─── Helpers ──────────────────────────────────────────────
+function timeAgo(isoString: string): string {
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return "—";
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  const diffWk = Math.floor(diffDay / 7);
+  if (diffWk < 5) return `${diffWk}w ago`;
+  return date.toLocaleDateString();
 }
 
-// ─── Nav item ─────────────────────────────────────────────
-function NavItem({
-  icon,
-  label,
-  active,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-2 px-2.5 py-[7px] rounded-lg text-[11.5px] mb-[1px] transition-all duration-150"
-      style={{
-        background: active ? "#12153a" : "transparent",
-        color: active ? "#9490e0" : TEXT.muted,
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = BG.surface;
-          e.currentTarget.style.color = TEXT.label;
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = "transparent";
-          e.currentTarget.style.color = TEXT.muted;
-        }
-      }}
-    >
-      <span style={{ color: active ? "#534AB7" : TEXT.muted, flexShrink: 0 }}>
-        {icon}
-      </span>
-      {label}
-    </button>
-  );
+function bytesToGB(bytes: number): string {
+  if (!bytes || bytes === 0) return "0";
+  return (bytes / 1_073_741_824).toFixed(1);
+}
+
+function storagePct(usedBytes: number, totalBytes: number): number {
+  if (!totalBytes) return 0;
+  return Math.min(100, Math.round((usedBytes / totalBytes) * 100));
 }
 
 // ─── Stat card ────────────────────────────────────────────
-// FIX 3: solid accent line inset from edges — always visible on dark bg
-// FIX 4: JS-driven progress animation via useRef — no missing Tailwind keyframe
 function StatCard({
   label,
   value,
   unit,
   delta,
-  deltaType,
+  deltaPositive,
   icon,
   accentColor,
-  showProgress = false,
+  iconBg,
 }: {
   label: string;
   value: string | number;
   unit?: string;
   delta: string;
-  deltaType: "up" | "neutral";
+  deltaPositive: boolean;
   icon: React.ReactNode;
   accentColor: string;
-  showProgress?: boolean;
+  iconBg: string;
 }) {
-  const barRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showProgress || !barRef.current) return;
-    let width = 25;
-    let dir = 1;
-    const tick = setInterval(() => {
-      width += dir * 1.2;
-      if (width >= 78) dir = -1;
-      if (width <= 18) dir = 1;
-      if (barRef.current) barRef.current.style.width = `${width}%`;
-    }, 30);
-    return () => clearInterval(tick);
-  }, [showProgress]);
-
   return (
     <div
-      className="rounded-[9px] px-3.5 py-3 relative overflow-hidden cursor-default transition-colors duration-150"
-      style={{ background: BG.surface, border: `0.5px solid ${BG.border}` }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = BG.borderHover)}
-      onMouseLeave={(e) => (e.currentTarget.style.borderColor = BG.border)}
+      className="relative bg-white rounded-[10px] px-4 py-3.5 overflow-hidden transition-all duration-150 cursor-default"
+      style={{ border: "0.5px solid #e5e7eb" }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#d1d5db")}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#e5e7eb")}
     >
-      {/* FIX 3: solid inset accent bar — visible on any dark surface */}
       <div
         className="absolute top-0 rounded-b-sm"
-        style={{
-          left: 10,
-          right: 10,
-          height: "1.5px",
-          background: accentColor,
-        }}
+        style={{ left: 12, right: 12, height: 2, background: accentColor }}
       />
-
-      {/* Label + icon */}
-      <div className="flex items-center justify-between mb-2 mt-0.5">
-        <span
-          className="font-mono text-[8.5px] tracking-[0.1em] uppercase"
-          style={{ color: TEXT.muted }}
-        >
+      <div className="flex items-center justify-between mb-2.5 mt-0.5">
+        <span className="font-mono text-[10px] tracking-[0.1em] uppercase text-gray-400">
           {label}
         </span>
-        <span style={{ color: accentColor }}>{icon}</span>
+        <div
+          className="w-[28px] h-[28px] rounded-lg flex items-center justify-center"
+          style={{ background: iconBg }}
+        >
+          <span style={{ color: accentColor }}>{icon}</span>
+        </div>
       </div>
-
-      {/* Value */}
-      <p
-        className="text-[22px] font-semibold leading-none"
-        style={{ color: TEXT.primary }}
-      >
+      <p className="text-[26px] font-medium leading-none text-gray-900">
         {value}
         {unit && (
-          <span
-            className="text-[12px] font-normal ml-1"
-            style={{ color: TEXT.muted }}
-          >
+          <span className="text-[13px] font-normal text-gray-400 ml-1">
             {unit}
           </span>
         )}
       </p>
-
-      {/* Delta */}
       <p
-        className="font-mono text-[9px] mt-1.5 flex items-center gap-1"
-        style={{ color: deltaType === "up" ? "#1D9E75" : TEXT.ghost }}
+        className="font-mono text-[10px] mt-1.5 flex items-center gap-1"
+        style={{ color: deltaPositive ? "#1D9E75" : "#9ca3af" }}
       >
-        <TrendingUp size={9} />
+        <TrendingUp size={10} />
         {delta}
       </p>
-
-      {/* FIX 4: JS-driven progress bar — no Tailwind keyframe needed */}
-      {showProgress && (
-        <div
-          className="mt-2 h-[2px] rounded-full overflow-hidden"
-          style={{ background: BG.border }}
-        >
-          <div
-            ref={barRef}
-            className="h-full rounded-full transition-[width] duration-75"
-            style={{ width: "25%", background: "#BA7517" }}
-          />
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── Project row ──────────────────────────────────────────
-function ProjectRow({
+// ─── Project card ─────────────────────────────────────────
+function ProjectCard({
   project,
   onView,
   onOpen,
 }: {
-  project: Project;
+  project: DashboardProject;
   onView: (e: React.MouseEvent) => void;
   onOpen: () => void;
 }) {
-  const ac = ACCENT[project.color];
   return (
     <div
       onClick={onOpen}
-      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors duration-150"
-      style={{ background: BG.surface, border: `0.5px solid ${BG.border}` }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = BG.borderHover)}
-      onMouseLeave={(e) => (e.currentTarget.style.borderColor = BG.border)}
+      className="bg-white rounded-[10px] overflow-hidden cursor-pointer transition-all duration-150"
+      style={{ border: "0.5px solid #e5e7eb" }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#c7d2fe")}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#e5e7eb")}
     >
-      {/* Project icon */}
       <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ background: ac.bg, color: ac.text }}
+        className="h-[82px] flex items-center justify-center"
+        style={{ background: project.thumbGradient }}
       >
-        {project.icon}
-      </div>
-
-      {/* Meta */}
-      <div className="flex-1 min-w-0">
-        <p
-          className="text-[12px] font-medium truncate"
-          style={{ color: TEXT.primary }}
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ background: project.accentBg }}
         >
+          <span style={{ color: project.accentIcon }}>{project.icon}</span>
+        </div>
+      </div>
+      <div className="px-3 pt-2.5 pb-3">
+        <p className="text-[12px] font-medium text-gray-900 truncate mb-0.5">
           {project.name}
         </p>
-        {/* FIX 5: was #2a2d3a (border color) — now TEXT.ghost which passes contrast */}
-        <p
-          className="font-mono text-[9px] mt-0.5"
-          style={{ color: TEXT.ghost }}
-        >
-          {project.models} models · {project.updatedAt}
+        <p className="font-mono text-[10px] text-gray-400 mb-1">
+          {project.models > 0 ? `${project.models} Models` : "No models yet"} ·{" "}
+          {project.members} Member{project.members !== 1 ? "s" : ""}
         </p>
-      </div>
-
-      {/* Status */}
-      <span
-        className={`font-mono text-[9px] tracking-[0.04em] px-2 py-[3px] rounded-full flex-shrink-0 ${STATUS_STYLE[project.status]}`}
-      >
-        {project.status}
-      </span>
-
-      {/* Actions */}
-      <div className="flex gap-1.5">
-        {[
-          { icon: <Eye size={12} />, label: "Open viewer", onClick: onView },
-          {
-            icon: <MoreHorizontal size={12} />,
-            label: "More options",
-            onClick: (e: React.MouseEvent) => e.stopPropagation(),
-          },
-        ].map(({ icon, label, onClick }) => (
-          <button
-            key={label}
-            onClick={onClick}
-            aria-label={label}
-            className="w-6 h-6 rounded-[5px] flex items-center justify-center transition-colors duration-150"
-            style={{
-              border: `0.5px solid ${BG.border}`,
-              background: "transparent",
-              color: TEXT.ghost,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = BG.borderHover;
-              e.currentTarget.style.color = "#7f77dd";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = BG.border;
-              e.currentTarget.style.color = TEXT.ghost;
-            }}
+        <p className="font-mono text-[9px] text-gray-400 mb-2.5">
+          Updated {project.updatedAt}
+        </p>
+        <div className="flex items-center justify-between">
+          <span
+            className={`font-mono text-[9px] tracking-[0.03em] px-2 py-[3px] rounded-full ${STATUS_CLASS[project.status]}`}
           >
-            {icon}
-          </button>
-        ))}
+            {project.status}
+          </span>
+          <div className="flex gap-1">
+            <button
+              onClick={onView}
+              aria-label="Open viewer"
+              className="w-[22px] h-[22px] rounded-[5px] flex items-center justify-center text-gray-400 transition-colors duration-150 hover:text-[#534AB7]"
+              style={{ border: "0.5px solid #e5e7eb" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.borderColor = "#a5b4fc")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.borderColor = "#e5e7eb")
+              }
+            >
+              <Eye size={11} />
+            </button>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              aria-label="More options"
+              className="w-[22px] h-[22px] rounded-[5px] flex items-center justify-center text-gray-400 transition-colors duration-150 hover:text-[#534AB7]"
+              style={{ border: "0.5px solid #e5e7eb" }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.borderColor = "#a5b4fc")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.borderColor = "#e5e7eb")
+              }
+            >
+              <MoreHorizontal size={11} />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── Right panel section label ────────────────────────────
-function PanelLabel({
-  icon,
-  children,
-}: {
-  icon: React.ReactNode;
-  children: string;
-}) {
+// ─── Storage donut ────────────────────────────────────────
+function StorageDonut({ pct }: { pct: number }) {
+  const r = 30;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - pct / 100);
   return (
-    <p
-      className="font-mono text-[8.5px] tracking-[0.16em] uppercase flex items-center gap-1.5 mb-2"
-      style={{ color: TEXT.ghost }}
+    <svg
+      width="80"
+      height="80"
+      viewBox="0 0 80 80"
+      aria-label={`Storage ${pct}% used`}
     >
-      {icon}
-      {children}
-    </p>
+      <circle
+        cx="40"
+        cy="40"
+        r={r}
+        fill="none"
+        stroke="#f3f4f6"
+        strokeWidth="8"
+      />
+      <circle
+        cx="40"
+        cy="40"
+        r={r}
+        fill="none"
+        stroke={pct > 80 ? "#E24B4A" : "#534AB7"}
+        strokeWidth="8"
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        transform="rotate(-90 40 40)"
+      />
+      <text
+        x="40"
+        y="37"
+        textAnchor="middle"
+        fontSize="13"
+        fontWeight="500"
+        fill="#111827"
+      >
+        {pct}%
+      </text>
+      <text x="40" y="50" textAnchor="middle" fontSize="9" fill="#9ca3af">
+        used
+      </text>
+    </svg>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────
+
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
 
-  const initials = user?.full_name?.charAt(0).toUpperCase() ?? "U";
+  const { user } = useAuthStore();
+  const [openModal, setOpenModal] = useState(false);
+
+  const { data: projects = [], isLoading: projectsLoading } = useProjects();
+
+  const initials = user?.full_name?.slice(0, 2).toUpperCase() ?? "U";
   const firstName = user?.full_name?.split(" ")[0] ?? "there";
-
-  // Greeting based on hour
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
-  const projects: Project[] = [
-    {
-      id: "1",
-      name: "Airport BIM",
-      models: 12,
-      status: "Ready",
-      updatedAt: "2h ago",
-      icon: <Building2 size={14} />,
-      color: "purple",
-    },
-    {
-      id: "2",
-      name: "Hospital Design",
-      models: 4,
-      status: "Processing",
-      updatedAt: "5h ago",
-      icon: <Box size={14} />,
-      color: "teal",
-    },
-    {
-      id: "3",
-      name: "Metro Station",
-      models: 8,
-      status: "Ready",
-      updatedAt: "Yesterday",
-      icon: <Train size={14} />,
-      color: "amber",
-    },
-    {
-      id: "4",
-      name: "Residential Complex",
-      models: 2,
-      status: "Draft",
-      updatedAt: "3d ago",
-      icon: <Home size={14} />,
-      color: "gray",
-    },
-  ];
+  const openProjects = () => navigate("/projects");
 
-  const activity = [
-    { label: "Airport BIM — model uploaded", time: "2h ago", color: "#534AB7" },
-    {
-      label: "Hospital Design — processing started",
-      time: "5h ago",
-      color: "#BA7517",
-    },
-    {
-      label: "Metro Station — shared with team",
-      time: "1d ago",
-      color: "#1D9E75",
-    },
-    {
-      label: "Residential Complex — created",
-      time: "3d ago",
-      color: TEXT.ghost,
-    },
-  ];
+  // ── Derived stats ──────────────────────────────────────
+  const totalProjects = projects.length;
+
+  const totalModels = useMemo(
+    () => projects.reduce((sum, p) => sum + p.modelCount, 0),
+    [projects],
+  );
+
+  const totalCollaborators = useMemo(
+    () => projects.reduce((sum, p) => sum + p.memberCount, 0),
+    [projects],
+  );
+
+  const totalStorageBytes = useMemo(
+    () => projects.reduce((sum, p) => sum + p.storageBytes, 0),
+    [projects],
+  );
+
+  const STORAGE_LIMIT_BYTES = 200 * 1_073_741_824;
+  const storageUsedGB = bytesToGB(totalStorageBytes);
+  const storagePctVal = storagePct(totalStorageBytes, STORAGE_LIMIT_BYTES);
+
+  // ── Dashboard project cards ────────────────────────────
+  const dashboardProjects: DashboardProject[] = useMemo(
+    () =>
+      projects.slice(0, 4).map((p, i) => {
+        const accent = ACCENT[i % ACCENT.length] ?? ACCENT[0];
+        const icon = ICONS[i % ICONS.length] ?? <Folder size={18} />;
+
+        return {
+          id: p.id,
+          name: p.name,
+          models: p.modelCount,
+          members: p.memberCount,
+          status: p.status,
+          updatedAt: timeAgo(p.updatedAt ?? p.createdAt),
+          icon,
+          accentBg: accent.bg,
+          accentIcon: accent.icon,
+          thumbGradient: accent.thumb,
+        };
+      }),
+    [projects],
+  );
+
+  // ── Activity feed ──────────────────────────────────────
+  const activity: ActivityItem[] = useMemo(
+    () =>
+      [...projects]
+        .sort(
+          (a, b) =>
+            new Date(b.updatedAt ?? b.createdAt).getTime() -
+            new Date(a.updatedAt ?? a.createdAt).getTime(),
+        )
+        .slice(0, 5)
+        .map((p, i) => ({
+          file: p.name,
+          action:
+            p.updatedAt && p.updatedAt !== p.createdAt
+              ? "Project updated"
+              : "Project created",
+          time: timeAgo(p.updatedAt ?? p.createdAt),
+          dotColor: ACTIVITY_COLORS[i % ACTIVITY_COLORS.length] ?? "#534AB7",
+        })),
+    [projects],
+  );
 
   const formats = ["GLB", "OBJ", "FBX", "IFC", "STEP", "STL"];
 
-  const navItems = [
-    {
-      label: "Dashboard",
-      icon: <LayoutDashboard size={14} />,
-      active: true,
-      onClick: () => {},
-    },
-    {
-      label: "Projects",
-      icon: <Folder size={14} />,
-      active: false,
-      onClick: () => navigate("/projects"),
-    },
-    {
-      label: "All Models",
-      icon: <Box size={14} />,
-      active: false,
-      onClick: () => {},
-    },
-    {
-      label: "Analytics",
-      icon: <BarChart2 size={14} />,
-      active: false,
-      onClick: () => {},
-    },
-    {
-      label: "Team",
-      icon: <Users size={14} />,
-      active: false,
-      onClick: () => {},
-    },
-  ];
-
   return (
-    <div
-      className="flex h-screen overflow-hidden"
-      style={{ background: BG.page, color: TEXT.primary }}
-    >
-      {/* ── Sidebar ───────────────────────────────────── */}
-      <aside
-        className="w-[196px] flex-shrink-0 flex flex-col"
-        style={{
-          background: BG.sidebar,
-          borderRight: `0.5px solid ${BG.border}`,
-        }}
-      >
-        {/* Brand */}
-        <div
-          className="flex items-center gap-2.5 px-4 py-4"
-          style={{ borderBottom: `0.5px solid ${BG.border}` }}
-        >
-          <WireCube />
-          <div>
-            <p
-              className="text-[13px] font-semibold leading-tight"
-              style={{ color: TEXT.primary }}
-            >
-              OpenFormat
-            </p>
-            <p
-              className="font-mono text-[8px] tracking-[0.16em] mt-0.5"
-              style={{ color: TEXT.ghost }}
-            >
-              3D VIEWER
-            </p>
-          </div>
-        </div>
-
-        {/* System status */}
-        <SystemStatus />
-
-        {/* Nav */}
-        <div className="px-3 pt-4 pb-2">
-          <p
-            className="font-mono text-[8px] tracking-[0.18em] uppercase px-2 mb-2"
-            style={{ color: TEXT.ghost }}
-          >
-            Workspace
-          </p>
-          {navItems.map((item) => (
-            <NavItem key={item.label} {...item} />
-          ))}
-        </div>
-
-        {/* New project CTA */}
-        <div className="px-3 pb-3">
-          <button
-            onClick={() => alert("Create Project")}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-[11px] tracking-[0.04em] transition-colors duration-150"
-            style={{ background: "#534AB7", color: "#EEEDFE" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#3C3489")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#534AB7")}
-          >
-            <Plus size={12} /> New Project
-          </button>
-        </div>
-
-        {/* Recent */}
-        <div className="px-3 flex-1 overflow-hidden">
-          <p
-            className="font-mono text-[8px] tracking-[0.18em] uppercase px-2 mb-2"
-            style={{ color: TEXT.ghost }}
-          >
-            Recent
-          </p>
-          {projects.slice(0, 3).map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center gap-2 px-2.5 py-[5px] rounded-lg cursor-pointer transition-colors duration-150"
-              style={{ color: TEXT.muted }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = BG.surface)
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
-            >
-              <div
-                className="w-[5px] h-[5px] rounded-full flex-shrink-0"
-                style={{ background: ACCENT[p.color].solid }}
-              />
-              {/* FIX 5: readable muted text, not near-invisible #2d3150 */}
-              <span
-                className="text-[10.5px] truncate flex-1"
-                style={{ color: TEXT.muted }}
-              >
-                {p.name}
-              </span>
-              <span
-                className="font-mono text-[9px]"
-                style={{ color: TEXT.ghost }}
-              >
-                {p.models}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* User footer */}
-        <div
-          className="px-3 py-3 mt-auto"
-          style={{ borderTop: `0.5px solid ${BG.border}` }}
-        >
-          <div className="flex items-center gap-2">
-            <div
-              className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-[10px] font-semibold flex-shrink-0"
-              style={{
-                background: "#12153a",
-                color: "#534AB7",
-                border: `0.5px solid ${BG.border}`,
-              }}
-            >
-              {initials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p
-                className="text-[11px] font-medium truncate"
-                style={{ color: TEXT.primary }}
-              >
-                {user?.full_name ?? "User"}
-              </p>
-              <p
-                className="font-mono text-[8px] mt-0.5"
-                style={{ color: TEXT.ghost }}
-              >
-                Project Lead
-              </p>
-            </div>
-            <button
-              onClick={logout}
-              className="transition-colors duration-150"
-              style={{ color: TEXT.ghost, background: "none", border: "none" }}
-              aria-label="Settings"
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#534AB7")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = TEXT.ghost)}
-            >
-              <Settings size={14} />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Main ──────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar */}
-        <header
-          className="flex items-center justify-between px-6 py-3.5 flex-shrink-0"
-          style={{
-            background: BG.sidebar,
-            borderBottom: `0.5px solid ${BG.border}`,
-          }}
-        >
-          <div>
-            <p
-              className="font-mono text-[8.5px] tracking-[0.28em] uppercase mb-1"
-              style={{ color: "#534AB7" }}
-            >
-              Dashboard · Overview
-            </p>
-            <h1
-              className="text-[15px] font-semibold"
-              style={{ color: TEXT.primary }}
-            >
-              {greeting}, {firstName}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* Search */}
-            <div
-              className="flex items-center gap-2 px-3 py-[6px] rounded-lg text-[11px] cursor-pointer transition-colors duration-150"
-              style={{
-                background: BG.surface,
-                border: `0.5px solid ${BG.border}`,
-                color: TEXT.muted,
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.borderColor = BG.borderHover)
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.borderColor = BG.border)
-              }
-            >
-              <Search size={13} />
-              <span>Search projects…</span>
-            </div>
-
-            {/* Bell */}
-            <button
-              aria-label="Notifications"
-              className="w-[30px] h-[30px] flex items-center justify-center rounded-lg transition-colors duration-150"
-              style={{
-                border: `0.5px solid ${BG.border}`,
-                background: BG.surface,
-                color: TEXT.muted,
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#7f77dd")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = TEXT.muted)}
-            >
-              <Bell size={14} />
-            </button>
-
-            {/* Upload */}
-            <button
-              onClick={() => alert("Upload Model")}
-              className="flex items-center gap-1.5 px-3.5 py-[6px] rounded-lg font-mono text-[11px] tracking-[0.04em] transition-colors duration-150"
-              style={{ background: "#534AB7", color: "#EEEDFE" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "#3C3489")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "#534AB7")
-              }
-            >
-              <Upload size={12} /> Upload model
-            </button>
-          </div>
-        </header>
-
-        {/* Body */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Center column */}
-          <div
-            className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-5"
+    <>
+      <div className="flex h-screen overflow-hidden bg-[#f8f8fc]">
+        {/* ── Main ──────────────────────────────────── */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <header
+            className="flex items-center justify-between px-6 py-3 bg-white flex-shrink-0"
             style={{
-              scrollbarWidth: "thin",
-              scrollbarColor: `${BG.border} transparent`,
+              borderBottom: "1px solid #eef2f7",
+              boxShadow: "0 1px 4px rgba(15,23,42,0.03)",
             }}
           >
-            {/* Stat cards */}
-            <div className="grid grid-cols-4 gap-3">
-              <StatCard
-                label="Projects"
-                value={24}
-                delta="+3 this month"
-                deltaType="up"
-                icon={<Folder size={13} />}
-                accentColor="#534AB7"
-              />
-              <StatCard
-                label="Models"
-                value={156}
-                delta="+12 this week"
-                deltaType="up"
-                icon={<Box size={13} />}
-                accentColor="#1D9E75"
-              />
-              <StatCard
-                label="Processing"
-                value={3}
-                delta="2 queued"
-                deltaType="neutral"
-                icon={<Loader size={13} />}
-                accentColor="#BA7517"
-                showProgress
-              />
-              <StatCard
-                label="Storage"
-                value="6.2"
-                unit="GB"
-                delta="of 10 GB used"
-                deltaType="neutral"
-                icon={<Database size={13} />}
-                accentColor={TEXT.ghost}
-              />
+            {/* Left */}
+            <div>
+              <p
+                className="font-mono text-[9px] tracking-[0.18em] uppercase"
+                style={{ color: "#534AB7" }}
+              >
+                Dashboard · Overview
+              </p>
+
+              <h1 className="text-[18px] font-semibold text-[#111827] leading-tight mt-1">
+                {greeting}, {firstName} 👋
+              </h1>
             </div>
 
-            {/* Recent projects */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2
-                  className="text-[13px] font-semibold"
-                  style={{ color: TEXT.primary }}
-                >
-                  Recent projects
-                </h2>
-                <button
-                  onClick={() => navigate("/projects")}
-                  className="flex items-center gap-1 font-mono text-[9.5px] transition-colors duration-150"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#534AB7",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.color = "#7f77dd")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.color = "#534AB7")
-                  }
-                >
-                  View all <ArrowRight size={11} />
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                {projects.map((p) => (
-                  <ProjectRow
-                    key={p.id}
-                    project={p}
-                    onView={(e) => {
-                      e.stopPropagation();
-                      navigate(`/viewer/${p.id}`);
-                    }}
-                    onOpen={() => navigate(`/projects/${p.id}`)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right panel */}
-          <div
-            className="w-[210px] flex-shrink-0 overflow-y-auto px-4 py-4 flex flex-col gap-5"
-            style={{
-              borderLeft: `0.5px solid ${BG.border}`,
-              background: BG.sidebar,
-              scrollbarWidth: "thin",
-              scrollbarColor: `${BG.border} transparent`,
-            }}
-          >
-            {/* Quick upload */}
-            <div>
-              <PanelLabel icon={<Upload size={11} />}>Quick upload</PanelLabel>
+            {/* Right */}
+            <div className="flex items-center gap-2">
+              {/* Search */}
               <div
-                className="rounded-lg p-4 text-center cursor-pointer transition-colors duration-150"
-                style={{ border: `0.5px dashed ${BG.border}` }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor =
-                    "#534AB7";
-                  (e.currentTarget as HTMLDivElement).style.background =
-                    BG.surface;
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor =
-                    BG.border;
-                  (e.currentTarget as HTMLDivElement).style.background =
-                    "transparent";
+                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg min-w-[240px] bg-[#f8f9fc]"
+                style={{ border: "1px solid #e5e7eb" }}
+              >
+                <Search size={14} className="text-gray-400" />
+                <span className="text-[12px] text-gray-400">Search...</span>
+              </div>
+
+              {/* Notification */}
+              <button
+                className="relative w-9 h-9 rounded-lg flex items-center justify-center bg-white"
+                style={{ border: "1px solid #e5e7eb" }}
+              >
+                <Bell size={16} className="text-gray-500" />
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full" />
+              </button>
+
+              {/* Avatar */}
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-semibold"
+                style={{
+                  background: "linear-gradient(135deg,#1a1d35,#534AB7)",
+                  color: "#fff",
                 }}
               >
-                <Cloud
-                  size={20}
-                  className="mx-auto mb-2"
-                  style={{ color: TEXT.ghost }}
+                {initials}
+              </div>
+            </div>
+          </header>
+
+          {/* Body */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Center */}
+            <div
+              className="flex-1 overflow-y-auto px-8 py-7 flex flex-col gap-8"
+              style={{
+                scrollbarWidth: "thin",
+                scrollbarColor: "#e5e7eb transparent",
+              }}
+            >
+              {/* Stat cards */}
+              <div className="grid grid-cols-4 gap-4">
+                <StatCard
+                  label="Projects"
+                  value={totalProjects}
+                  delta={
+                    totalProjects > 0
+                      ? `${totalProjects} active`
+                      : "No projects yet"
+                  }
+                  deltaPositive={totalProjects > 0}
+                  icon={<Folder size={14} />}
+                  accentColor="#534AB7"
+                  iconBg="#EEEDFE"
                 />
-                <p className="text-[10.5px]" style={{ color: TEXT.muted }}>
-                  Drop model here
-                </p>
-                <p
-                  className="font-mono text-[9px] mt-1"
-                  style={{ color: TEXT.ghost }}
-                >
-                  .glb · .obj · .fbx · .ifc
-                </p>
-              </div>
-            </div>
-
-            {/* Storage */}
-            <div>
-              <PanelLabel icon={<Database size={11} />}>Storage</PanelLabel>
-              <div
-                className="h-[3px] rounded-full overflow-hidden"
-                style={{ background: BG.border }}
-              >
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: "62%", background: "#534AB7" }}
+                <StatCard
+                  label="Models"
+                  value={totalModels}
+                  delta={
+                    totalModels > 0
+                      ? `Across ${totalProjects} project${totalProjects !== 1 ? "s" : ""}`
+                      : "No models yet"
+                  }
+                  deltaPositive={totalModels > 0}
+                  icon={<Box size={14} />}
+                  accentColor="#1D9E75"
+                  iconBg="#e1f5ee"
+                />
+                <StatCard
+                  label="Storage"
+                  value={storageUsedGB}
+                  unit="GB"
+                  delta={`of 200 GB used (${storagePctVal}%)`}
+                  deltaPositive={false}
+                  icon={<Database size={14} />}
+                  accentColor="#BA7517"
+                  iconBg="#faeeda"
+                />
+                <StatCard
+                  label="Collaborators"
+                  value={totalCollaborators}
+                  delta={
+                    totalCollaborators > 0
+                      ? "Workspace members"
+                      : "No members yet"
+                  }
+                  deltaPositive={totalCollaborators > 0}
+                  icon={<Users size={14} />}
+                  accentColor="#378ADD"
+                  iconBg="#e6f1fb"
                 />
               </div>
+
+              {/* Recent Projects */}
               <div
-                className="flex justify-between font-mono text-[9px] mt-1.5"
-                style={{ color: TEXT.ghost }}
+                className="rounded-3xl bg-white p-6 shadow-sm"
+                style={{ border: "1px solid #edf0f5" }}
               >
-                <span>6.2 GB used</span>
-                <span>10 GB</span>
-              </div>
-            </div>
-
-            {/* Formats */}
-            <div>
-              <PanelLabel icon={<Box size={11} />}>Formats</PanelLabel>
-              <div className="grid grid-cols-2 gap-1.5">
-                {formats.map((f) => (
-                  <div
-                    key={f}
-                    className="px-2 py-[5px] rounded-[5px] font-mono text-[9.5px] text-center tracking-[0.06em]"
-                    style={{
-                      background: BG.surface,
-                      border: `0.5px solid ${BG.border}`,
-                      color: TEXT.muted,
-                    }}
-                  >
-                    {f}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Activity */}
-            <div>
-              <PanelLabel icon={<Activity size={11} />}>Activity</PanelLabel>
-              <div>
-                {activity.map((a, i) => (
-                  <div
-                    key={i}
-                    className="flex gap-2 py-2"
-                    style={{
-                      borderBottom:
-                        i < activity.length - 1
-                          ? `0.5px solid ${BG.border}`
-                          : "none",
-                    }}
-                  >
-                    <div
-                      className="w-[5px] h-[5px] rounded-full mt-[5px] flex-shrink-0"
-                      style={{ background: a.color }}
-                    />
-                    <div>
-                      <p
-                        className="text-[10.5px] leading-snug"
-                        style={{ color: TEXT.muted }}
-                      >
-                        {a.label}
-                      </p>
-                      <p
-                        className="font-mono text-[8.5px] mt-0.5"
-                        style={{ color: TEXT.ghost }}
-                      >
-                        {a.time}
-                      </p>
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6D63E8]">
+                      Workspace
+                    </p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#111827]">
+                        Recent Projects
+                      </h2>
+                      <span className="rounded-full bg-[#EEEDFE] px-3 py-1 text-[11px] font-medium text-[#534AB7]">
+                        {totalProjects}
+                      </span>
                     </div>
                   </div>
-                ))}
+
+                  <button
+                    onClick={openProjects}
+                    className="group flex items-center gap-1 rounded-xl px-4 py-2 text-[13px] font-medium text-[#534AB7] transition hover:bg-[#EEEDFE]"
+                  >
+                    View all
+                    <ChevronRight
+                      size={15}
+                      className="transition-transform group-hover:translate-x-0.5"
+                    />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {projectsLoading ? (
+                    <div className="col-span-full flex min-h-[180px] items-center justify-center rounded-2xl bg-gray-50">
+                      Loading projects...
+                    </div>
+                  ) : dashboardProjects.length === 0 ? (
+                    <div className="col-span-full flex min-h-[180px] flex-col items-center justify-center rounded-2xl bg-gray-50">
+                      <Folder size={34} className="mb-3 text-gray-300" />
+                      <p className="text-sm font-medium text-gray-700">
+                        No projects yet
+                      </p>
+                    </div>
+                  ) : (
+                    dashboardProjects.map((p) => (
+                      <ProjectCard
+                        key={p.id}
+                        project={p}
+                        onView={(e) => {
+                          e.stopPropagation();
+                          navigate(`/viewer/${p.id}`);
+                        }}
+                        onOpen={() => navigate(`/projects/${p.id}`)}
+                      />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Activity */}
+              <div
+                className="rounded-3xl bg-white p-6 shadow-sm"
+                style={{ border: "1px solid #edf0f5" }}
+              >
+                <div className="mb-6">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6D63E8]">
+                    Activity Feed
+                  </p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[#111827]">
+                      Recent Activity
+                    </h2>
+                    <span className="rounded-full bg-[#EEEDFE] px-3 py-1 text-[11px] font-medium text-[#534AB7]">
+                      {activity.length}
+                    </span>
+                  </div>
+                </div>
+
+                {activity.length === 0 ? (
+                  <div className="flex min-h-[160px] items-center justify-center rounded-2xl bg-gray-50">
+                    No recent activity
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {activity.map((a, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between rounded-2xl border border-gray-100 px-5 py-4 transition hover:bg-gray-50"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div
+                            className="flex h-10 w-10 items-center justify-center rounded-full"
+                            style={{ background: `${a.dotColor}18` }}
+                          >
+                            <span
+                              className="h-[10px] w-[10px] rounded-full"
+                              style={{ background: a.dotColor }}
+                            />
+                          </div>
+
+                          <div>
+                            <p className="text-[14px] font-medium text-[#111827]">
+                              {a.file}
+                            </p>
+                            <p className="text-[12px] text-gray-500">
+                              {a.action}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="text-[11px] font-medium text-gray-400">
+                          {a.time}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Panel */}
+            <div
+              className="w-[280px] flex-shrink-0 overflow-y-auto px-5 py-7 bg-white"
+              style={{
+                borderLeft: "1px solid #edf0f5",
+              }}
+            >
+              <div className="mb-8">
+                <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">
+                  Storage Usage
+                </p>
+
+                <div className="flex justify-center mb-4">
+                  <StorageDonut pct={storagePctVal} />
+                </div>
+
+                <p className="text-[13px] text-gray-600 text-center">
+                  {storageUsedGB} GB of 200 GB used
+                </p>
+              </div>
+
+              <div className="border-t border-gray-200 pt-6 mb-8">
+                <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">
+                  Quick Upload
+                </p>
+
+                <div className="rounded-2xl border border-dashed border-gray-300 p-6 text-center hover:border-[#534AB7] hover:bg-[#EEEDFE] transition">
+                  <Cloud size={24} className="mx-auto mb-3 text-gray-400" />
+                  <p className="text-[13px] text-gray-600">
+                    Drop model here or click to browse
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-6">
+                <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-500">
+                  Supported Formats
+                </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {formats.map((f) => (
+                    <div
+                      key={f}
+                      className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-center text-[12px] font-medium text-gray-600 hover:border-[#534AB7] hover:text-[#534AB7] hover:bg-[#EEEDFE] transition"
+                    >
+                      {f}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* New project modal */}
+      <ProjectModal
+        isOpen={openModal}
+        project={null}
+        onClose={() => setOpenModal(false)}
+      />
+    </>
   );
 }

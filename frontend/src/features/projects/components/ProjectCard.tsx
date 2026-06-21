@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import type { Project } from "../types/project.types";
 
 interface Props {
@@ -5,15 +6,16 @@ interface Props {
 }
 
 export default function ProjectCard({ project }: Props) {
+  const navigate = useNavigate();
+
   return (
-    <div className="bg-white border rounded-xl p-5 shadow-sm">
+    <div
+      onClick={() => navigate(`/projects/${project.id}`)}
+      className="cursor-pointer rounded-xl border bg-white p-5 shadow-sm"
+    >
       <h3 className="text-lg font-semibold">{project.name}</h3>
 
-      <p className="text-gray-500 mt-2">{project.description}</p>
-
-      <p className="text-sm text-gray-400 mt-4">
-        {new Date(project.created_at).toLocaleDateString()}
-      </p>
+      <p className="mt-2 text-sm text-gray-500">{project.description}</p>
     </div>
   );
 }

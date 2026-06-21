@@ -1,7 +1,13 @@
-export interface SignUpPayload {
+export interface AuthUser {
+  id: string;
   email: string;
-  password: string;
   full_name?: string;
+  plan?: string;
+  provider?: string | null;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
 }
 
 export interface SignInPayload {
@@ -9,18 +15,8 @@ export interface SignInPayload {
   password: string;
 }
 
-export interface RefreshPayload {
-  refresh_token: string;
-}
-
-export interface AuthUser {
-  id: string;
+export interface SignUpPayload {
   email: string;
+  password: string;
   full_name?: string;
-}
-
-export interface AuthResponse {
-  user: AuthUser | null;
-  accessToken: string;
-  refreshToken: string;
 }

@@ -4,17 +4,23 @@ import { register } from "../api/authApi";
 import { useAuthStore } from "../store/authStore";
 
 export const useSignup = () => {
-  const setAuth = useAuthStore((state) => state.setAuth);
+  const setUser = useAuthStore((state) => state.setUser);
   const navigate = useNavigate();
 
   return useMutation({
     mutationFn: register,
     onSuccess: (data) => {
       console.log("SIGNUP SUCCESS", data);
-      setAuth(data);
-      console.log("AFTER SETAUTH");
+
+      if (data.user) {
+        setUser(data.user);
+      }
+
       navigate("/login");
-      console.log("AFTER NAVIGATE");
+    },
+
+    onError: (error: Error) => {
+      console.error(error.message);
     },
   });
 };

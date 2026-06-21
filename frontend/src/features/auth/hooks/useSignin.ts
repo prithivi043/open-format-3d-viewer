@@ -4,17 +4,19 @@ import { login } from "../api/authApi";
 import { useAuthStore } from "../store/authStore";
 
 export const useSignin = () => {
-  const setAuth = useAuthStore((state) => state.setAuth);
   const navigate = useNavigate();
+  const setUser = useAuthStore((s) => s.setUser);
 
   return useMutation({
     mutationFn: login,
+
     onSuccess: (data) => {
-      console.log("LOGIN SUCCESS", data);
-      setAuth(data);
-      console.log("AFTER SETAUTH");
+      setUser(data.user);
       navigate("/dashboard");
-      console.log("AFTER NAVIGATE");
+    },
+
+    onError: (error: Error) => {
+      console.error(error.message);
     },
   });
 };

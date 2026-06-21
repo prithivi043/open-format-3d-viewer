@@ -3,58 +3,41 @@ import type {
   AuthResponse,
   SignInPayload,
   SignUpPayload,
+  AuthUser,
 } from "../types/auth.types";
 
-type RawAuthResponse = {
-  access_token: string;
-  refresh_token: string;
-  token_type?: string;
-};
-
-const mapAuth = (res: RawAuthResponse): AuthResponse => ({
-  user: null,
-  accessToken: res.access_token,
-  refreshToken: res.refresh_token,
-});
-
-export const register = async (data: SignUpPayload): Promise<AuthResponse> => {
-  console.log("REGISTER PAYLOAD:", data);
-  const res = await apiClient<RawAuthResponse>("/auth/register", {
+export async function login(data: SignInPayload): Promise<AuthResponse> {
+  const user = await apiClient<AuthUser>("/auth/login", {
     method: "POST",
     body: JSON.stringify(data),
   });
 
-  return mapAuth(res);
-};
+  return { user };
+}
 
-export const login = async (data: SignInPayload): Promise<AuthResponse> => {
-  const res = await apiClient<RawAuthResponse>("/auth/login", {
+export async function register(data: SignUpPayload): Promise<AuthResponse> {
+  const user = await apiClient<AuthUser>("/auth/register", {
     method: "POST",
     body: JSON.stringify(data),
   });
 
-  console.log("LOGIN RESPONSE:", res);
+  return { user };
+}
 
-  return mapAuth(res);
-};
-
-export const refreshToken = async (
-  refresh_token: string,
-): Promise<AuthResponse> => {
-  const res = await apiClient<RawAuthResponse>("/auth/refresh", {
-    method: "POST",
-    body: JSON.stringify({ refresh_token }),
+export async function getCurrentUser(): Promise<AuthUser> {
+  return apiClient<AuthUser>("/auth/me", {
+    method: "GET",
   });
+}
 
-  return mapAuth(res);
-};
-
-export const logout = (refreshToken: string) =>
-  apiClient<void>("/auth/logout", {
+export async function refreshSession(): Promise<void> {
+  await apiClient("/auth/refresh", {
     method: "POST",
-    body: JSON.stringify({
-      refresh_token: refreshToken,
-    }),
   });
+}
 
-export const getMe = () => apiClient("/auth/me");
+export async function logout(): Promise<void> {
+  await apiClient("/auth/logout", {
+    method: "POST",
+  });
+}
