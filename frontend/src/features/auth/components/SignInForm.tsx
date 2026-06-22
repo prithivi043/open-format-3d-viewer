@@ -102,23 +102,6 @@ export default function SignInForm() {
           )}
         </div>
 
-        {/* Remember + Forgot */}
-        <div className="flex items-center justify-between">
-          <label className="flex cursor-pointer select-none items-center gap-2">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-gray-300 accent-violet-600"
-            />
-            <span className="text-sm text-gray-600">Remember me</span>
-          </label>
-          <button
-            type="button"
-            className="text-sm font-medium text-violet-600 hover:text-violet-700 transition-colors"
-          >
-            Forgot Password?
-          </button>
-        </div>
-
         {/* Submit */}
         <button
           type="submit"
