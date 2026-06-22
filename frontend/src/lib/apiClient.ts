@@ -1,4 +1,13 @@
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
+
+const AUTH_ENDPOINTS = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/me",
+  "/auth/logout",
+  "/auth/refresh",
+  "/auth/google",
+];
 
 export async function apiClient<T>(
   endpoint: string,
@@ -19,19 +28,26 @@ export async function apiClient<T>(
 
   let normalized = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
-  // prevent duplicate /v1
   if (normalized.startsWith("/v1/")) {
     normalized = normalized.replace("/v1", "");
   }
 
+  const isAuthEndpoint = AUTH_ENDPOINTS.some(
+    (path) => normalized === path || normalized.startsWith(`${path}/`),
+  );
+
   let url: string;
 
   if (import.meta.env.DEV) {
-    // localhost → use vite proxy
     url = `/v1${normalized}`;
   } else {
-    // vercel production → call backend directly
-    url = `${BASE_URL}${normalized}`;
+    if (isAuthEndpoint) {
+      // auth → direct backend
+      url = `${BASE_URL}${normalized}`;
+    } else {
+      // projects/models → via vercel proxy
+      url = `/v1${normalized}`;
+    }
   }
 
   console.log("API URL:", url);
