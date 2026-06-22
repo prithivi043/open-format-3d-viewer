@@ -4,21 +4,28 @@ import { useAuthStore } from "../../features/auth/store/authStore";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const { isAuthenticated, isAuthLoading } = useAuthStore();
+  const setUser = useAuthStore((s) => s.setUser);
 
   useEffect(() => {
-    if (!isAuthLoading && isAuthenticated) {
-      navigate("/dashboard", { replace: true });
+    const params = new URLSearchParams(window.location.search);
+
+    const id = params.get("id");
+    const email = params.get("email");
+    const full_name = params.get("name");
+
+    if (!id || !email) {
+      navigate("/login");
+      return;
     }
 
-    if (!isAuthLoading && !isAuthenticated) {
-      navigate("/login?error=oauth_failed", { replace: true });
-    }
-  }, [isAuthenticated, isAuthLoading, navigate]);
+    setUser({
+      id,
+      email,
+      full_name: full_name ?? "",
+    });
 
-  return (
-    <div className="h-screen flex items-center justify-center bg-[#0A0D1A] text-white">
-      Completing sign in...
-    </div>
-  );
+    navigate("/dashboard", { replace: true });
+  }, [navigate, setUser]);
+
+  return <div>Signing in...</div>;
 }

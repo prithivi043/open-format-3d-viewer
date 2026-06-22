@@ -1,41 +1,17 @@
 import { useEffect, type ReactNode } from "react";
 import { useAuthStore } from "../store/authStore";
-import { getCurrentUser } from "../api/authApi";
 
 interface Props {
   children: ReactNode;
 }
 
-// These paths should not trigger a /auth/me fetch.
-// /auth/callback handles its own hydration after OAuth.
-const SKIP_BOOTSTRAP_ROUTES = ["/login", "/register", "/auth/callback"];
-
 export default function AuthProvider({ children }: Props) {
-  const setUser = useAuthStore((s) => s.setUser);
   const setLoading = useAuthStore((s) => s.setLoading);
   const isAuthLoading = useAuthStore((s) => s.isAuthLoading);
 
   useEffect(() => {
-    const pathname = window.location.pathname;
-
-    if (SKIP_BOOTSTRAP_ROUTES.includes(pathname)) {
-      setLoading(false);
-      return;
-    }
-
-    async function bootstrap() {
-      try {
-        const user = await getCurrentUser();
-        setUser(user);
-      } catch {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    bootstrap();
-  }, [setUser, setLoading]);
+    setLoading(false);
+  }, [setLoading]);
 
   if (isAuthLoading) {
     return (

@@ -1,5 +1,8 @@
+// BASE_URL is only used in vite.config.ts as the proxy target.
+// NEVER prepend it to fetch() calls — that causes CORS in the browser.
+// The /v1 prefix is injected here centrally so all callers use short paths
+// like "/auth/login" and "/projects" without worrying about the prefix.
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-// https://open-format-3d-viewer.onrender.com/v1
 
 export async function apiClient<T>(
   endpoint: string,
@@ -12,18 +15,14 @@ export async function apiClient<T>(
     ...((options.headers as Record<string, string>) ?? {}),
   };
 
-  const isFormData = options.body instanceof FormData;
-
-  if (method !== "GET" && method !== "HEAD" && !isFormData) {
+  if (method !== "GET" && method !== "HEAD") {
     headers["Content-Type"] = "application/json";
   }
 
+  //  Inject /v1 prefix centrally — callers just pass "/auth/login", "/projects" etc.
+  // Relative path goes through Vite proxy in dev → no CORS.
   const normalized = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-
-  // ABSOLUTE URL (IMPORTANT)
-  const url = `${BASE_URL}${normalized}`;
-
-  console.log("API URL:", url);
+  const url = `/v1${normalized}`;
 
   const res = await fetch(url, {
     ...options,
