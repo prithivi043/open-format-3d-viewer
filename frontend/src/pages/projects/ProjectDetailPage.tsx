@@ -1,13 +1,17 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Upload, Users } from "lucide-react";
 
 import { useProject } from "../../features/projects/hooks/useProject";
+import { useLayoutStore } from "../../stores/layoutStore";
 
 type Tab = "models" | "members" | "activity" | "settings";
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { setActiveNav } = useLayoutStore();
+
   const { data: project, isLoading, isError } = useProject(id ?? "");
 
   const [activeTab, setActiveTab] = useState<Tab>("models");
@@ -15,7 +19,7 @@ export default function ProjectDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#f5f7fb] flex items-center justify-center">
-        Loading...
+        Loading project...
       </div>
     );
   }
@@ -28,29 +32,10 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const mockModels = [
-    {
-      name: "Tower_Design.ifc",
-      format: "IFC",
-      status: "Ready",
-      size: "12.4 GB",
-      updated: "2 hours ago",
-    },
-    {
-      name: "Road_Model.glb",
-      format: "GLB",
-      status: "Processing",
-      size: "8.1 GB",
-      updated: "1 hour ago",
-    },
-    {
-      name: "Bridge_Model.stl",
-      format: "STL",
-      status: "Failed",
-      size: "2.8 GB",
-      updated: "Yesterday",
-    },
-  ];
+  const openUpload = () => {
+    setActiveNav("models");
+    navigate(`/models/upload?projectId=${project.id}`);
+  };
 
   const tabClass = (tab: Tab) =>
     `px-4 py-3 text-sm font-medium border-b-2 transition ${
@@ -75,7 +60,9 @@ export default function ProjectDetailPage() {
               {project.name}
             </h1>
 
-            <p className="mt-2 text-slate-500">{project.description}</p>
+            <p className="mt-2 text-slate-500">
+              {project.description || "No description"}
+            </p>
           </div>
 
           <div className="flex gap-3">
@@ -86,7 +73,10 @@ export default function ProjectDetailPage() {
               </div>
             </button>
 
-            <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">
+            <button
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white"
+              onClick={openUpload}
+            >
               <div className="flex items-center gap-2">
                 <Upload size={16} />
                 Upload Model
@@ -129,56 +119,25 @@ export default function ProjectDetailPage() {
         </div>
 
         {/* Content */}
-        <div className="rounded-b-xl bg-white p-6 shadow-sm">
+        <div className="rounded-b-xl bg-white p-6 shadow-sm min-h-[500px]">
           {activeTab === "models" && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b text-slate-500">
-                  <tr>
-                    <th className="pb-4">Model Name</th>
-                    <th className="pb-4">Format</th>
-                    <th className="pb-4">Status</th>
-                    <th className="pb-4">Size</th>
-                    <th className="pb-4">Updated</th>
-                    <th className="pb-4">Action</th>
-                  </tr>
-                </thead>
+            <div className="flex h-[350px] flex-col items-center justify-center text-center">
+              <Upload size={42} className="mb-4 text-slate-400" />
 
-                <tbody>
-                  {mockModels.map((model) => (
-                    <tr key={model.name} className="border-b">
-                      <td className="py-4 font-medium text-slate-800">
-                        {model.name}
-                      </td>
+              <h3 className="text-lg font-semibold text-slate-800">
+                No models uploaded
+              </h3>
 
-                      <td>{model.format}</td>
+              <p className="mt-2 text-sm text-slate-500">
+                Upload IFC / GLB / GLTF models to start viewing.
+              </p>
 
-                      <td>
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs ${
-                            model.status === "Ready"
-                              ? "bg-green-100 text-green-600"
-                              : model.status === "Processing"
-                                ? "bg-blue-100 text-blue-600"
-                                : "bg-red-100 text-red-600"
-                          }`}
-                        >
-                          {model.status}
-                        </span>
-                      </td>
-
-                      <td>{model.size}</td>
-                      <td>{model.updated}</td>
-
-                      <td>
-                        <button className="rounded-md border px-3 py-1 text-blue-600">
-                          Open Viewer
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <button
+                className="mt-5 rounded-lg bg-blue-600 px-4 py-2 text-white"
+                onClick={openUpload}
+              >
+                Upload Model
+              </button>
             </div>
           )}
 

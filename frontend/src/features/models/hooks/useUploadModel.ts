@@ -1,14 +1,12 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
   confirmUpload,
   requestUploadUrl,
   uploadFileToS3,
 } from "../api/modelApi";
 import { useUploadStore } from "../store/uploadStore";
-import type { ModelFormat } from "../types/model.types";
 
 export function useUploadModel(projectId: string) {
-  const queryClient = useQueryClient();
   const { setProgress, setUploading, reset } = useUploadStore();
 
   return useMutation({
@@ -16,28 +14,28 @@ export function useUploadModel(projectId: string) {
       setUploading(true);
       setProgress(0);
 
-      const format = file.name.split(".").pop()?.toLowerCase() as ModelFormat;
-
       const uploadData = await requestUploadUrl({
         project_id: projectId,
-        name: file.name,
-        format,
-        file_size_bytes: file.size,
+        filename: file.name,
+        content_type: file.type || "application/octet-stream",
+        size_bytes: file.size,
       });
 
       await uploadFileToS3(uploadData.upload_url, file, setProgress);
 
+      setProgress(100);
+
       await confirmUpload(uploadData.model_id);
+
+      return uploadData.model_id;
     },
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["models", projectId],
-      });
-      reset();
+    onError: (error) => {
+      console.error("Upload mutation error:", error);
     },
 
-    onError: () => {
+    onSettled: () => {
+      setUploading(false);
       reset();
     },
   });

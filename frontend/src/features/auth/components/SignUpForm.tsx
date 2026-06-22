@@ -4,17 +4,22 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signupSchema, type SignupFormData } from "../schemas/authSchema";
 import { useSignup } from "../hooks/useSignup";
-import {
-  Eye,
-  EyeOff,
-  UserPlus,
-  Loader2,
-  User,
-  Mail,
-  Lock,
-  ShieldCheck,
-} from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import GoogleIcon from "../components/GoogleIcon";
+
+const STRENGTH_LABEL = ["", "Weak", "Fair", "Strong"] as const;
+const STRENGTH_COLOR = [
+  "",
+  "bg-red-400",
+  "bg-amber-400",
+  "bg-emerald-500",
+] as const;
+const STRENGTH_TEXT = [
+  "",
+  "text-red-500",
+  "text-amber-500",
+  "text-emerald-600",
+] as const;
 
 export default function SignUpForm() {
   const mutation = useSignup();
@@ -30,7 +35,7 @@ export default function SignUpForm() {
   });
 
   const password = watch("password") || "";
-  const passwordStrength =
+  const strength =
     password.length >= 12
       ? 3
       : password.length >= 8
@@ -41,97 +46,75 @@ export default function SignUpForm() {
 
   const onSubmit = (data: SignupFormData) => mutation.mutate(data);
 
-  const inputClass = `
-    w-full rounded-2xl
-    border border-white/10
-    bg-white/[0.03]
-    backdrop-blur-xl
-    py-3 pl-12 pr-4
-    text-[15px] text-white
-    placeholder:text-slate-500
-    shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]
-    transition-all duration-300
-    hover:border-white/20
-    focus:border-cyan-400
-    focus:ring-4 focus:ring-cyan-500/10
-    outline-none
+  const inputCls = (hasError: boolean) => `
+    w-full rounded-lg border px-4 py-3 text-[15px] text-gray-900 bg-white
+    placeholder:text-gray-400 outline-none transition-all duration-200
+    hover:border-gray-400
+    focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500
+    ${
+      hasError
+        ? "border-red-400 focus:ring-red-500/20 focus:border-red-400"
+        : "border-gray-300"
+    }
   `;
 
-  return (
-    <>
-      {/* Header */}
-      <div className="mb-5">
-        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-2.5 py-1">
-          <div className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-[10px] uppercase tracking-[0.22em] text-cyan-300">
-            Enterprise 3D Platform
-          </span>
-        </div>
+  // VITE_API_BASE_URL = "https://open-format-3d-viewer.onrender.com/v1"
+  // auth/google is under /v1, so: VITE_API_BASE_URL + "/auth/google"
+  const googleAuthUrl = `${import.meta.env.VITE_API_BASE_URL}/auth/google`;
 
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white">
-          Create your workspace
+  return (
+    <div className="text-gray-900">
+      {/* Header */}
+      <div className="mb-7">
+        <h1 className="text-[28px] font-bold tracking-tight text-gray-900">
+          Create Account
         </h1>
+        <p className="mt-1.5 text-sm text-gray-500">
+          Join the Open Format 3D Platform
+        </p>
       </div>
 
-      {/* Google Auth */}
-      <button
-        type="button"
-        onClick={() => {
-          window.location.href = `${import.meta.env.VITE_API_BASE_URL}/auth/google`;
-        }}
+      {/* Google — direct <a> tag, bypasses Vite proxy (correct for OAuth) */}
+      <a
+        href={googleAuthUrl}
         className="
-        group w-full rounded-xl
-        border border-white/10
-        bg-white/[0.03]
-        py-2.5 text-sm
-        hover:bg-white/[0.06]
-        hover:border-white/20
-        transition-all duration-300
-        flex items-center justify-center gap-3
-      "
+          mb-5 flex w-full items-center justify-center gap-3
+          rounded-lg border border-gray-300 bg-white py-3
+          text-sm font-medium text-gray-700 shadow-sm
+          hover:bg-gray-50 hover:border-gray-400
+          transition-all duration-200
+        "
       >
         <GoogleIcon />
         Continue with Google
-      </button>
+      </a>
 
       {/* Divider */}
-      <div className="my-4 flex items-center gap-3">
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
-        <span className="text-[10px] tracking-[0.22em] text-slate-500 uppercase">
-          Or continue with email
-        </span>
-        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
+      <div className="mb-5 flex items-center gap-3">
+        <div className="h-px flex-1 bg-gray-200" />
+        <span className="text-xs text-gray-400">or continue with email</span>
+        <div className="h-px flex-1 bg-gray-200" />
       </div>
 
-      {/* Error */}
       {mutation.isError && (
-        <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+        <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
           {(mutation.error as Error)?.message ?? "Sign up failed. Try again."}
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
-        {/* Name */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        {/* Full Name */}
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-slate-300">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">
             Full Name
           </label>
-
-          <div className="relative">
-            <User
-              size={16}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
-            />
-
-            <input
-              {...register("full_name")}
-              placeholder="Your name"
-              className={`${inputClass} ${errors.full_name ? "border-red-500" : ""}`}
-            />
-          </div>
-
+          <input
+            {...register("full_name")}
+            placeholder="Your name"
+            className={inputCls(!!errors.full_name)}
+          />
           {errors.full_name && (
-            <p className="mt-1 text-[11px] text-red-400">
+            <p className="mt-1.5 text-xs text-red-500">
               {errors.full_name.message}
             </p>
           )}
@@ -139,25 +122,18 @@ export default function SignUpForm() {
 
         {/* Email */}
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-slate-300">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">
             Email Address
           </label>
-
-          <div className="relative">
-            <Mail
-              size={16}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
-            />
-
-            <input
-              {...register("email")}
-              placeholder="you@example.com"
-              className={`${inputClass} ${errors.email ? "border-red-500" : ""}`}
-            />
-          </div>
-
+          <input
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            {...register("email")}
+            className={inputCls(!!errors.email)}
+          />
           {errors.email && (
-            <p className="mt-1 text-[11px] text-red-400">
+            <p className="mt-1.5 text-xs text-red-500">
               {errors.email.message}
             </p>
           )}
@@ -165,55 +141,50 @@ export default function SignUpForm() {
 
         {/* Password */}
         <div>
-          <label className="mb-1.5 block text-[13px] font-medium text-slate-300">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">
             Password
           </label>
-
           <div className="relative">
-            <Lock
-              size={16}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
-            />
-
             <input
               type={showPassword ? "text" : "password"}
-              {...register("password")}
+              autoComplete="new-password"
               placeholder="Minimum 8 characters"
-              className={`${inputClass} pr-11 ${
-                errors.password ? "border-red-500" : ""
-              }`}
+              {...register("password")}
+              className={`${inputCls(!!errors.password)} pr-12`}
             />
-
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+              onClick={() => setShowPassword((p) => !p)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
 
-          {/* Password Strength */}
-          <div className="mt-1.5 flex gap-1">
-            <div
-              className={`h-[3px] flex-1 rounded ${
-                passwordStrength >= 1 ? "bg-cyan-400" : "bg-white/10"
-              }`}
-            />
-            <div
-              className={`h-[3px] flex-1 rounded ${
-                passwordStrength >= 2 ? "bg-cyan-400" : "bg-white/10"
-              }`}
-            />
-            <div
-              className={`h-[3px] flex-1 rounded ${
-                passwordStrength >= 3 ? "bg-cyan-400" : "bg-white/10"
-              }`}
-            />
-          </div>
+          {password.length > 0 && (
+            <div className="mt-2">
+              <div className="flex gap-1">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-[3px] flex-1 rounded-full transition-all duration-300 ${
+                      strength >= i ? STRENGTH_COLOR[strength] : "bg-gray-200"
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-gray-400">
+                Strength:{" "}
+                <span className={`font-medium ${STRENGTH_TEXT[strength]}`}>
+                  {STRENGTH_LABEL[strength]}
+                </span>
+              </p>
+            </div>
+          )}
 
           {errors.password && (
-            <p className="mt-1 text-[11px] text-red-400">
+            <p className="mt-1.5 text-xs text-red-500">
               {errors.password.message}
             </p>
           )}
@@ -224,49 +195,39 @@ export default function SignUpForm() {
           type="submit"
           disabled={mutation.isPending}
           className="
-          group relative overflow-hidden
-          w-full rounded-xl py-2.5
-          bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600
-          text-sm font-semibold text-white
-          shadow-[0_8px_25px_rgba(6,182,212,0.35)]
-          transition-all duration-500
-          hover:scale-[1.01]
-          active:scale-[0.99]
-          disabled:opacity-50
-          flex items-center justify-center gap-2
-        "
+            mt-1 flex w-full items-center justify-center gap-2 rounded-lg py-3
+            bg-gradient-to-r from-violet-600 to-purple-700
+            text-[15px] font-semibold text-white
+            shadow-md shadow-violet-500/25
+            transition-all duration-200
+            hover:from-violet-700 hover:to-purple-800
+            active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed
+          "
         >
-          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent group-hover:translate-x-full transition-transform duration-1000" />
-
           {mutation.isPending ? (
             <>
-              <Loader2 size={16} className="animate-spin" />
-              Creating...
+              <Loader2 size={18} className="animate-spin" /> Creating account…
             </>
           ) : (
-            <>
-              <UserPlus size={16} />
-              Create Workspace
-            </>
+            "Create Account"
           )}
         </button>
       </form>
 
-      <p className="mt-4 text-center text-xs text-slate-400">
+      <p className="mt-5 text-center text-sm text-gray-500">
         Already have an account?{" "}
         <Link
           to="/login"
-          className="text-cyan-400 hover:text-cyan-300 transition-colors"
+          className="font-semibold text-violet-600 hover:text-violet-700 transition-colors"
         >
           Sign in
         </Link>
       </p>
 
-      {/* Trust Footer */}
-      <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-slate-500">
+      <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
         <ShieldCheck size={12} />
-        Secure authentication with OAuth 2.0 & JWT
+        Secure authentication · OAuth 2.0 & JWT
       </div>
-    </>
+    </div>
   );
 }

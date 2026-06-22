@@ -1,27 +1,33 @@
 import { apiClient } from "../../../lib/apiClient";
 import type {
-  Model,
   UploadModelPayload,
   UploadUrlResponse,
+  Model,
 } from "../types/model.types";
-
-export async function getModels(projectId: string): Promise<Model[]> {
-  return apiClient<Model[]>(`/models?project_id=${projectId}`);
-}
 
 export async function requestUploadUrl(
   payload: UploadModelPayload,
 ): Promise<UploadUrlResponse> {
   return apiClient<UploadUrlResponse>("/models/upload", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      project_id: payload.project_id,
+      filename: payload.filename,
+      content_type: payload.content_type,
+      size_bytes: payload.size_bytes,
+    }),
   });
 }
 
 export async function confirmUpload(modelId: string): Promise<void> {
-  await apiClient(`/models/${modelId}/confirm`, {
+  await apiClient<void>(`/models/${modelId}/confirm`, {
     method: "POST",
+    body: JSON.stringify({}),
   });
+}
+
+export async function getModel(modelId: string): Promise<Model> {
+  return apiClient<Model>(`/models/${modelId}`);
 }
 
 export function uploadFileToS3(
@@ -33,11 +39,15 @@ export function uploadFileToS3(
     const xhr = new XMLHttpRequest();
 
     xhr.open("PUT", uploadUrl);
+    xhr.setRequestHeader(
+      "Content-Type",
+      file.type || "application/octet-stream",
+    );
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        onProgress(percent);
+        const progress = Math.round((event.loaded / event.total) * 100);
+        onProgress(progress);
       }
     };
 
@@ -45,7 +55,7 @@ export function uploadFileToS3(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
       } else {
-        reject(new Error("S3 upload failed"));
+        reject(new Error(`S3 upload failed with status ${xhr.status}`));
       }
     };
 

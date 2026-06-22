@@ -10,28 +10,34 @@ function RouteError() {
   );
 }
 
+function Loader() {
+  return (
+    <div className="h-screen flex items-center justify-center bg-[#0A0D1A] text-white">
+      Loading…
+    </div>
+  );
+}
+
 const AuthPage = lazy(() => import("../pages/auth/AuthPage"));
+const AuthCallback = lazy(() => import("../pages/auth/AuthCallback"));
 const UserProfilePage = lazy(() => import("../pages/auth/UserProfilePage"));
+
 const DashboardLayout = lazy(
   () => import("../pages/dashboard/DashboardLayout"),
 );
+
 const DashboardHome = lazy(() => import("../pages/dashboard/DashboardPage"));
 const ProjectListPage = lazy(() => import("../pages/projects/ProjectListPage"));
 const ProjectDetailPage = lazy(
   () => import("../pages/projects/ProjectDetailPage"),
 );
 const ViewerPage = lazy(() => import("../pages/viewer/ViewerPage"));
-
-function Loader() {
-  return (
-    <div className="h-screen flex items-center justify-center">Loading...</div>
-  );
-}
+const ModelUploadPage = lazy(() => import("../pages/models/ModelUploadPage"));
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/register" replace />,
+    element: <Navigate to="/login" replace />,
   },
 
   {
@@ -53,49 +59,18 @@ export const router = createBrowserRouter([
   },
 
   {
+    path: "/auth/callback",
+    element: (
+      <Suspense fallback={<Loader />}>
+        <AuthCallback />
+      </Suspense>
+    ),
+  },
+
+  {
     element: <ProtectedRoute />,
     errorElement: <RouteError />,
     children: [
-      // Dashboard shell for /dashboard
-      {
-        path: "/dashboard",
-        element: (
-          <Suspense fallback={<Loader />}>
-            <DashboardLayout />
-          </Suspense>
-        ),
-        children: [
-          {
-            index: true,
-            element: (
-              <Suspense fallback={<Loader />}>
-                <DashboardHome />
-              </Suspense>
-            ),
-          },
-        ],
-      },
-
-      // Same dashboard shell for /projects
-      {
-        path: "/projects",
-        element: (
-          <Suspense fallback={<Loader />}>
-            <DashboardLayout />
-          </Suspense>
-        ),
-        children: [
-          {
-            index: true,
-            element: (
-              <Suspense fallback={<Loader />}>
-                <ProjectListPage />
-              </Suspense>
-            ),
-          },
-        ],
-      },
-
       {
         path: "/me",
         element: (
@@ -106,21 +81,58 @@ export const router = createBrowserRouter([
       },
 
       {
-        path: "/projects/:id",
+        path: "/",
         element: (
           <Suspense fallback={<Loader />}>
-            <ProjectDetailPage />
+            <DashboardLayout />
           </Suspense>
         ),
-      },
+        children: [
+          {
+            path: "dashboard",
+            element: (
+              <Suspense fallback={<Loader />}>
+                <DashboardHome />
+              </Suspense>
+            ),
+          },
 
-      {
-        path: "/viewer/:modelId",
-        element: (
-          <Suspense fallback={<Loader />}>
-            <ViewerPage />
-          </Suspense>
-        ),
+          {
+            path: "projects",
+            element: (
+              <Suspense fallback={<Loader />}>
+                <ProjectListPage />
+              </Suspense>
+            ),
+          },
+
+          {
+            path: "projects/:id",
+            element: (
+              <Suspense fallback={<Loader />}>
+                <ProjectDetailPage />
+              </Suspense>
+            ),
+          },
+
+          {
+            path: "models/upload",
+            element: (
+              <Suspense fallback={<Loader />}>
+                <ModelUploadPage />
+              </Suspense>
+            ),
+          },
+
+          {
+            path: "viewer/:modelId",
+            element: (
+              <Suspense fallback={<Loader />}>
+                <ViewerPage />
+              </Suspense>
+            ),
+          },
+        ],
       },
     ],
   },

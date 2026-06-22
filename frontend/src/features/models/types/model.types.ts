@@ -13,19 +13,26 @@ export type ModelStatus = "uploading" | "processing" | "ready" | "failed";
 export interface Model {
   id: string;
   project_id: string;
-  name: string;
-  format: ModelFormat;
-  file_size_bytes: number;
+
+  // backend may return filename instead of name
+  filename: string;
+
+  content_type: string;
+  size_bytes: number;
+
   status: ModelStatus;
+
   created_at: string;
   updated_at?: string;
 }
 
 export interface UploadModelPayload {
   project_id: string;
-  name: string;
-  format: ModelFormat;
-  file_size_bytes: number;
+
+  // PRD schema
+  filename: string;
+  content_type: string;
+  size_bytes: number;
 }
 
 export interface UploadUrlResponse {

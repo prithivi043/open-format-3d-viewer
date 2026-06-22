@@ -4,12 +4,10 @@ import { useNavigate } from "react-router-dom";
 import {
   Folder,
   Box,
-  Bell,
   Eye,
   MoreHorizontal,
   TrendingUp,
   Database,
-  Search,
   Users,
   Building2,
   Train,
@@ -17,7 +15,7 @@ import {
   Cloud,
   ChevronRight,
 } from "lucide-react";
-import { useAuthStore } from "../../features/auth/store/authStore";
+
 import { useProjects } from "../../features/projects/hooks/useProjects";
 import ProjectModal from "../../features/projects/components/ProjectModal";
 
@@ -303,16 +301,9 @@ function StorageDonut({ pct }: { pct: number }) {
 export default function DashboardPage() {
   const navigate = useNavigate();
 
-  const { user } = useAuthStore();
   const [openModal, setOpenModal] = useState(false);
 
   const { data: projects = [], isLoading: projectsLoading } = useProjects();
-
-  const initials = user?.full_name?.slice(0, 2).toUpperCase() ?? "U";
-  const firstName = user?.full_name?.split(" ")[0] ?? "there";
-  const hour = new Date().getHours();
-  const greeting =
-    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   const openProjects = () => navigate("/projects");
 
@@ -391,56 +382,35 @@ export default function DashboardPage() {
         {/* ── Main ──────────────────────────────────── */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <header
-            className="flex items-center justify-between px-6 py-3 bg-white flex-shrink-0"
+            className="flex items-center justify-between px-6 py-2.5 bg-white flex-shrink-0"
             style={{
               borderBottom: "1px solid #eef2f7",
-              boxShadow: "0 1px 4px rgba(15,23,42,0.03)",
             }}
           >
             {/* Left */}
-            <div>
+            <div className="flex flex-col">
               <p
-                className="font-mono text-[9px] tracking-[0.18em] uppercase"
+                className="text-[9px] font-semibold uppercase tracking-[0.18em]"
                 style={{ color: "#534AB7" }}
               >
-                Dashboard · Overview
+                Workspace
               </p>
 
-              <h1 className="text-[18px] font-semibold text-[#111827] leading-tight mt-1">
-                {greeting}, {firstName} 👋
+              <h1 className="text-[18px] font-semibold text-[#111827] leading-tight mt-0.5">
+                Dashboard
               </h1>
             </div>
 
             {/* Right */}
-            <div className="flex items-center gap-2">
-              {/* Search */}
-              <div
-                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg min-w-[240px] bg-[#f8f9fc]"
-                style={{ border: "1px solid #e5e7eb" }}
-              >
-                <Search size={14} className="text-gray-400" />
-                <span className="text-[12px] text-gray-400">Search...</span>
-              </div>
-
-              {/* Notification */}
-              <button
-                className="relative w-9 h-9 rounded-lg flex items-center justify-center bg-white"
-                style={{ border: "1px solid #e5e7eb" }}
-              >
-                <Bell size={16} className="text-gray-500" />
-                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-red-500 rounded-full" />
-              </button>
-
-              {/* Avatar */}
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-semibold"
-                style={{
-                  background: "linear-gradient(135deg,#1a1d35,#534AB7)",
-                  color: "#fff",
-                }}
-              >
-                {initials}
-              </div>
+            <div
+              className="px-3 py-1 rounded-full text-[11px] font-medium"
+              style={{
+                background: "#f5f3ff",
+                color: "#534AB7",
+                border: "1px solid #e9e5ff",
+              }}
+            >
+              Active Workspace
             </div>
           </header>
 

@@ -137,7 +137,9 @@ export default function ProjectListPage() {
                   className="h-44 w-full rounded-t-2xl object-cover"
                   loading="lazy"
                   onError={(e) => {
-                    e.currentTarget.src = `https://picsum.photos/seed/fallback-${project.id}/600/400`;
+                    e.currentTarget.onerror = null; // prevent infinite loop
+                    e.currentTarget.src =
+                      "https://images.pexels.com/photos/323705/pexels-photo-323705.jpeg";
                   }}
                 />
 

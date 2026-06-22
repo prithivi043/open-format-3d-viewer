@@ -4,7 +4,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signinSchema, type SigninFormData } from "../schemas/authSchema";
 import { useSignin } from "../hooks/useSignin";
-import { Eye, EyeOff, ArrowRight, Loader2, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import GoogleIcon from "../components/GoogleIcon";
 
 export default function SignInForm() {
   const mutation = useSignin();
@@ -20,118 +21,101 @@ export default function SignInForm() {
 
   const onSubmit = (data: SigninFormData) => mutation.mutate(data);
 
+  const inputCls = (hasError: boolean) => `
+    w-full rounded-lg border px-4 py-3 text-[15px] text-gray-900 bg-white
+    placeholder:text-gray-400 outline-none transition-all duration-200
+    hover:border-gray-400
+    focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500
+    ${
+      hasError
+        ? "border-red-400 focus:ring-red-500/20 focus:border-red-400"
+        : "border-gray-300"
+    }
+  `;
+
+  // VITE_API_BASE_URL = "https://open-format-3d-viewer.onrender.com/v1"
+  // so auth/google lives at: VITE_API_BASE_URL + "/auth/google"  (no extra /v1)
+  const googleAuthUrl = `${import.meta.env.VITE_API_BASE_URL}/auth/google`;
+
   return (
-    <>
+    <div className="text-gray-900">
       {/* Header */}
-      <div className="mb-6">
-        <p className="text-cyan-400 text-xs uppercase tracking-[0.3em] mb-3">
-          3D Viewer Platform
-        </p>
-
-        <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
-
-        <p className="text-sm text-slate-400 mt-2 leading-relaxed">
-          Sign in to access your 3D workspace and continue exploring models.
-        </p>
+      <div className="mb-8">
+        <h1 className="text-[28px] font-bold tracking-tight text-gray-900">
+          Welcome Back!
+        </h1>
+        <p className="mt-1.5 text-sm text-gray-500">Login to your Account</p>
       </div>
 
-      {/* Error */}
       {mutation.isError && (
-        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
           {(mutation.error as Error)?.message ?? "Sign in failed. Try again."}
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
         {/* Email */}
         <div>
-          <label className="mb-2 block text-xs uppercase tracking-widest text-slate-400">
-            Email
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            Email Address
           </label>
-
-          <div className="relative">
-            <Mail
-              size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-            />
-
-            <input
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              {...register("email")}
-              className={`
-                w-full rounded-xl border bg-white/5 backdrop-blur-md
-                py-3 pl-12 pr-4 text-white placeholder-slate-500
-                outline-none transition-all duration-300
-                focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10
-                ${
-                  errors.email
-                    ? "border-red-500"
-                    : "border-white/10 hover:border-white/20"
-                }
-              `}
-            />
-          </div>
-
+          <input
+            type="email"
+            autoComplete="email"
+            placeholder="Enter your email"
+            {...register("email")}
+            className={inputCls(!!errors.email)}
+          />
           {errors.email && (
-            <p className="mt-2 text-xs text-red-400">{errors.email.message}</p>
+            <p className="mt-1.5 text-xs text-red-500">
+              {errors.email.message}
+            </p>
           )}
         </div>
 
         {/* Password */}
         <div>
-          <label className="mb-2 block text-xs uppercase tracking-widest text-slate-400">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">
             Password
           </label>
-
           <div className="relative">
-            <Lock
-              size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-            />
-
             <input
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
-              placeholder="••••••••"
+              placeholder="Enter your password"
               {...register("password")}
-              className={`
-                w-full rounded-xl border bg-white/5 backdrop-blur-md
-                py-3 pl-12 pr-12 text-white placeholder-slate-500
-                outline-none transition-all duration-300
-                focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10
-                ${
-                  errors.password
-                    ? "border-red-500"
-                    : "border-white/10 hover:border-white/20"
-                }
-              `}
+              className={`${inputCls(!!errors.password)} pr-12`}
             />
-
             <button
               type="button"
               onClick={() => setShowPassword((p) => !p)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-
           {errors.password && (
-            <p className="mt-2 text-xs text-red-400">
+            <p className="mt-1.5 text-xs text-red-500">
               {errors.password.message}
             </p>
           )}
         </div>
 
-        {/* Optional Forgot Password */}
-        <div className="flex justify-end">
+        {/* Remember + Forgot */}
+        <div className="flex items-center justify-between">
+          <label className="flex cursor-pointer select-none items-center gap-2">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 accent-violet-600"
+            />
+            <span className="text-sm text-gray-600">Remember me</span>
+          </label>
           <button
             type="button"
-            className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+            className="text-sm font-medium text-violet-600 hover:text-violet-700 transition-colors"
           >
-            Forgot password?
+            Forgot Password?
           </button>
         </div>
 
@@ -140,40 +124,56 @@ export default function SignInForm() {
           type="submit"
           disabled={mutation.isPending}
           className="
-            mt-2 w-full rounded-xl py-3
-            bg-gradient-to-r from-cyan-500 to-blue-600
-            text-white font-semibold
-            shadow-lg shadow-cyan-500/25
-            transition-all duration-300
-            hover:scale-[1.02]
-            active:scale-[0.98]
-            disabled:opacity-50
-            flex items-center justify-center gap-2
+            flex w-full items-center justify-center gap-2 rounded-lg py-3
+            bg-gradient-to-r from-violet-600 to-purple-700
+            text-[15px] font-semibold text-white
+            shadow-md shadow-violet-500/25
+            transition-all duration-200
+            hover:from-violet-700 hover:to-purple-800
+            active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed
           "
         >
           {mutation.isPending ? (
             <>
-              <Loader2 size={18} className="animate-spin" />
-              Signing In...
+              <Loader2 size={18} className="animate-spin" /> Signing in…
             </>
           ) : (
-            <>
-              <ArrowRight size={18} />
-              Sign In
-            </>
+            "Login"
           )}
         </button>
       </form>
 
-      <p className="mt-5 text-center text-sm text-slate-400">
-        No account?{" "}
+      {/* Divider */}
+      <div className="my-5 flex items-center gap-3">
+        <div className="h-px flex-1 bg-gray-200" />
+        <span className="text-xs text-gray-400">or continue with</span>
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
+
+      {/* Google — direct navigation, no proxy needed for OAuth */}
+      <a
+        href={googleAuthUrl}
+        className="
+          flex w-full items-center justify-center gap-3
+          rounded-lg border border-gray-300 bg-white py-3
+          text-sm font-medium text-gray-700 shadow-sm
+          hover:bg-gray-50 hover:border-gray-400
+          transition-all duration-200
+        "
+      >
+        <GoogleIcon />
+        Continue with Google
+      </a>
+
+      <p className="mt-6 text-center text-sm text-gray-500">
+        Don't have an account?{" "}
         <Link
           to="/register"
-          className="text-cyan-400 hover:text-cyan-300 transition-colors"
+          className="font-semibold text-violet-600 hover:text-violet-700 transition-colors"
         >
-          Create one
+          Sign up
         </Link>
       </p>
-    </>
+    </div>
   );
 }
