@@ -1,7 +1,8 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "../features/auth/store/authStore";
 
 export default function ProtectedRoute() {
+  const location = useLocation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isAuthLoading);
 
@@ -13,5 +14,13 @@ export default function ProtectedRoute() {
     );
   }
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    if (location.pathname === "/auth/callback") {
+      return null;
+    }
+
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
 }
