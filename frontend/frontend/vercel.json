@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/v1/(.*)",
+      "destination": "https://open-format-3d-viewer.onrender.com/v1/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
