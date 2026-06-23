@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { login } from "../api/authApi";
+import { login, getCurrentUser } from "../api/authApi";
 import { useAuthStore } from "../store/authStore";
 
 export const useSignin = () => {
@@ -10,13 +10,10 @@ export const useSignin = () => {
   return useMutation({
     mutationFn: login,
 
-    onSuccess: (data) => {
-      setUser(data.user);
+    onSuccess: async () => {
+      const user = await getCurrentUser();
+      setUser(user);
       navigate("/dashboard");
-    },
-
-    onError: (error: Error) => {
-      console.error(error.message);
     },
   });
 };

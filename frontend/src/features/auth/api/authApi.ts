@@ -24,12 +24,9 @@ export async function register(data: SignUpPayload): Promise<AuthResponse> {
   return { user };
 }
 
-// Removed getCurrentUser()
-// No more /auth/me calls
-
-export async function refreshSession(): Promise<void> {
-  await apiClient("/auth/refresh", {
-    method: "POST",
+export async function getCurrentUser(): Promise<AuthUser> {
+  return apiClient<AuthUser>("/auth/me", {
+    method: "GET",
   });
 }
 
