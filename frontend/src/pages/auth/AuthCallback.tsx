@@ -5,6 +5,7 @@ import { useAuthStore } from "../../features/auth/store/authStore";
 export default function AuthCallback() {
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
+  const setLoading = useAuthStore((s) => s.setLoading);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -14,7 +15,8 @@ export default function AuthCallback() {
     const full_name = params.get("name");
 
     if (!id || !email) {
-      navigate("/login");
+      setLoading(false);
+      navigate("/login", { replace: true });
       return;
     }
 
@@ -24,8 +26,9 @@ export default function AuthCallback() {
       full_name: full_name ?? "",
     });
 
+    setLoading(false);
     navigate("/dashboard", { replace: true });
-  }, [navigate, setUser]);
+  }, [navigate, setUser, setLoading]);
 
   return <div>Signing in...</div>;
 }
