@@ -1,47 +1,36 @@
 import { useEffect, type ReactNode } from "react";
-import { useAuthStore } from "../store/authStore";
 import { getCurrentUser } from "../api/authApi";
+import { useAuthStore } from "../store/authStore";
 
-interface Props {
-  children: ReactNode;
-}
+const SKIP = ["/login", "/register", "/auth/callback"];
 
-const SKIP_ROUTES = ["/login", "/register", "/auth/callback"];
-
-export default function AuthProvider({ children }: Props) {
+export default function AuthProvider({ children }: { children: ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
   const setLoading = useAuthStore((s) => s.setLoading);
   const isAuthLoading = useAuthStore((s) => s.isAuthLoading);
 
   useEffect(() => {
-    const pathname = window.location.pathname;
-
-    if (SKIP_ROUTES.includes(pathname)) {
+    if (SKIP.includes(window.location.pathname)) {
       setLoading(false);
       return;
     }
 
-    async function bootstrap() {
+    async function init() {
       try {
         const user = await getCurrentUser();
         setUser(user);
-      } catch (error) {
-        console.error("Bootstrap auth failed:", error);
+      } catch {
         setUser(null);
       } finally {
         setLoading(false);
       }
     }
 
-    bootstrap();
-  }, [setUser, setLoading]);
+    init();
+  }, [setLoading, setUser]);
 
   if (isAuthLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        Loading session...
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   return <>{children}</>;

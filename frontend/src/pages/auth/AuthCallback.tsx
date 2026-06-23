@@ -1,36 +1,26 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../../features/auth/store/authStore";
 import { getCurrentUser } from "../../features/auth/api/authApi";
+import { useAuthStore } from "../../features/auth/store/authStore";
 
 export default function AuthCallback() {
-  console.log("AuthCallback mounted");
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
-  const setLoading = useAuthStore((s) => s.setLoading);
 
   useEffect(() => {
-    async function hydrate() {
+    async function bootstrap() {
       try {
         const user = await getCurrentUser();
-
-        console.log("OAuth user:", user);
-
         setUser(user);
         navigate("/dashboard", { replace: true });
       } catch (error) {
-        console.error("OAuth callback failed:", error);
-        setLoading(false);
+        console.error(error);
         navigate("/login", { replace: true });
       }
     }
 
-    hydrate();
-  }, [navigate, setUser, setLoading]);
+    bootstrap();
+  }, [navigate, setUser]);
 
-  return (
-    <div className="h-screen flex items-center justify-center">
-      Completing Google sign in...
-    </div>
-  );
+  return <div>Completing login...</div>;
 }

@@ -25,9 +25,7 @@ export async function register(data: SignUpPayload): Promise<AuthResponse> {
 }
 
 export async function getCurrentUser(): Promise<AuthUser> {
-  return apiClient<AuthUser>("/auth/me", {
-    method: "GET",
-  });
+  return apiClient<AuthUser>("/auth/me");
 }
 
 export async function logout(): Promise<void> {
