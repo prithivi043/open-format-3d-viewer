@@ -161,7 +161,7 @@ export default function ApiKeysTab({ plan = "Free" }: Props) {
                         title="Revoke key"
                         className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-[#999] hover:text-red-500 disabled:opacity-40"
                       >
-                        <Tras h2 size={15} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </td>

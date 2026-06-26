@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Folder,
   Box,
-  Bell,
   Pencil,
   Package,
   Plus,
