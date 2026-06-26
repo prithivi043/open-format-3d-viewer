@@ -1,42 +1,128 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { isMockModeActive, handleMockRequest } from "./mockApi";
+
+type ApiOptions = {
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  body?: unknown;
+  headers?: HeadersInit;
+  retry?: boolean;
+};
+
+export type ApiResponse<T> = {
+  data: T;
+  meta?: unknown;
+};
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+if (!import.meta.env.DEV && !BASE_URL) {
+  throw new Error("Missing VITE_API_BASE_URL");
+}
+
+function buildUrl(endpoint: string) {
+  const normalized = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+
+  if (import.meta.env.DEV) {
+    return `/v1${normalized}`;
+  }
+
+  const cleanBase = BASE_URL.endsWith("/v1") ? BASE_URL.slice(0, -3) : BASE_URL;
+
+  return `${cleanBase}/v1${normalized}`;
+}
+
+async function refreshToken() {
+  const response = await fetch(buildUrl("/auth/refresh"), {
+    method: "POST",
+    credentials: "include",
+  });
+
+  return response.ok;
+}
+
+function extractErrorMessage(data: unknown, status: number): string {
+  const err = data as any;
+
+  if (err?.error?.code === "INTERNAL_ERROR") {
+    return "The server is currently unavailable. Please try again later.";
+  }
+
+  if (Array.isArray(err?.detail)) {
+    return err.detail.map((d: any) => d?.msg ?? String(d)).join(", ");
+  }
+
+  if (typeof err?.detail === "string") {
+    return err.detail;
+  }
+
+  if (typeof err?.message === "string") return err.message;
+  if (typeof err?.error?.message === "string") return err.error.message;
+
+  return `Request failed (${status})`;
+}
 
 export async function apiClient<T>(
   endpoint: string,
-  options: RequestInit = {},
+  options: ApiOptions = {},
 ): Promise<T> {
-  const method = options.method ?? "GET";
+  const { method = "GET", body, headers = {}, retry = true } = options;
 
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    ...((options.headers as Record<string, string>) ?? {}),
+  if (isMockModeActive()) {
+    return handleMockRequest(endpoint, options) as Promise<T>;
+  }
+
+  const requestUrl = buildUrl(endpoint);
+
+  const requestHeaders: HeadersInit = {
+    "Content-Type": "application/json",
+    ...headers,
   };
 
-  if (method !== "GET" && method !== "HEAD") {
-    headers["Content-Type"] = "application/json";
-  }
-
-  const normalized = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  const url = `${API_BASE}${normalized}`;
-
-  console.log("API URL:", url);
-
-  const res = await fetch(url, {
-    ...options,
+  const fetchOptions: RequestInit = {
+    method,
     credentials: "include",
-    headers,
-  });
+    headers: requestHeaders,
+  };
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    throw new Error(
-      err?.error?.message ?? err?.detail ?? `Request failed (${res.status})`,
-    );
+  if (body) {
+    fetchOptions.body = typeof body === "string" ? body : JSON.stringify(body);
   }
 
-  if (res.status === 204) {
-    return undefined as T;
+  const response = await fetch(requestUrl, fetchOptions);
+
+  if (response.status === 401 && retry) {
+    const refreshed = await refreshToken();
+
+    if (refreshed) {
+      return apiClient<T>(endpoint, {
+        ...options,
+        retry: false,
+      });
+    }
   }
 
-  const json = await res.json();
-  return json?.data ?? json;
+  let data: any = null;
+
+  try {
+    data = await response.json();
+  } catch {}
+
+  if (!response.ok) {
+    const message = extractErrorMessage(data, response.status);
+
+    if (import.meta.env.DEV) {
+      console.error("API ERROR:", {
+        endpoint,
+        status: response.status,
+        response: data,
+      });
+    }
+
+    throw new Error(message);
+  }
+
+  if (data && typeof data === "object" && "data" in data) {
+    return data.data as T;
+  }
+
+  return data as T;
 }

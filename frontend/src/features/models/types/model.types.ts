@@ -39,3 +39,19 @@ export interface UploadUrlResponse {
   upload_url: string;
   model_id: string;
 }
+
+export interface Annotation {
+  id: string;
+  model_id: string;
+  position_xyz: number[];
+  normal_xyz: number[];
+  message: string;
+  status: "open" | "closed";
+  created_at: string;
+}
+
+export interface CreateAnnotationPayload {
+  position_xyz: number[];
+  normal_xyz: number[];
+  message: string;
+}

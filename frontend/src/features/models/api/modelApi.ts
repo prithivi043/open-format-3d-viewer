@@ -4,6 +4,9 @@ import type {
   UploadUrlResponse,
   Model,
 } from "../types/model.types";
+import { isMockModeActive } from "../../../lib/mockApi";
+import { localModelStore } from "../../../lib/localModelStore";
+
 
 export async function requestUploadUrl(
   payload: UploadModelPayload,
@@ -30,11 +33,44 @@ export async function getModel(modelId: string): Promise<Model> {
   return apiClient<Model>(`/models/${modelId}`);
 }
 
+export async function getModelTree(modelId: string): Promise<any> {
+  return apiClient<any>(`/models/${modelId}/tree`);
+}
+
+
 export function uploadFileToS3(
   uploadUrl: string,
   file: File,
   onProgress: (progress: number) => void,
 ): Promise<void> {
+  if (isMockModeActive() || uploadUrl.startsWith("local://") || uploadUrl.includes("mock-s3-upload-url")) {
+    let modelId = "";
+    if (uploadUrl.startsWith("local://")) {
+      modelId = uploadUrl.substring(8);
+    } else if (uploadUrl.includes("mock-s3-upload-url")) {
+      const parts = uploadUrl.split("/upload/");
+      modelId = parts[parts.length - 1] || "mock-model-id";
+    } else {
+      modelId = "temp-mock-model-id";
+    }
+
+    return new Promise((resolve, reject) => {
+      localModelStore.saveFile(modelId, file)
+        .then(() => {
+          let progress = 0;
+          const interval = setInterval(() => {
+            progress += 10;
+            onProgress(Math.min(progress, 100));
+            if (progress >= 100) {
+              clearInterval(interval);
+              resolve();
+            }
+          }, 80);
+        })
+        .catch(reject);
+    });
+  }
+
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 

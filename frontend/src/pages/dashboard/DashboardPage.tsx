@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Folder,
   Box,
@@ -300,6 +300,8 @@ function StorageDonut({ pct }: { pct: number }) {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const showLoginSuccess = searchParams.get("login") === "success";
 
   const [openModal, setOpenModal] = useState(false);
 
@@ -424,6 +426,25 @@ export default function DashboardPage() {
                 scrollbarColor: "#e5e7eb transparent",
               }}
             >
+              {showLoginSuccess && (
+                <div className="rounded-2xl border border-emerald-300 bg-emerald-50 px-5 py-4 text-sm text-emerald-800 flex items-center justify-between shadow-sm flex-shrink-0 animate-fade-in">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🎉</span>
+                    <span>
+                      <strong>Logged in successfully!</strong> Welcome to your OpenFormat 3D Workspace.
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigate("/dashboard", { replace: true });
+                    }}
+                    className="text-emerald-600 hover:text-emerald-800 text-xs font-semibold"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
               {/* Stat cards */}
               <div className="grid grid-cols-4 gap-4">
                 <StatCard

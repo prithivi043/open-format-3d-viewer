@@ -6,6 +6,8 @@ import { signupSchema, type SignupFormData } from "../schemas/authSchema";
 import { useSignup } from "../hooks/useSignup";
 import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import GoogleIcon from "../components/GoogleIcon";
+import { getGoogleAuthUrl } from "../api/authApi";
+import { useBackendHealth } from "../hooks/useBackendHealth";
 
 const STRENGTH_LABEL = ["", "Weak", "Fair", "Strong"] as const;
 const STRENGTH_COLOR = [
@@ -24,6 +26,7 @@ const STRENGTH_TEXT = [
 export default function SignUpForm() {
   const mutation = useSignup();
   const [showPassword, setShowPassword] = useState(false);
+  const { status: serverStatus, detail: serverDetail } = useBackendHealth();
 
   const {
     register,
@@ -58,9 +61,7 @@ export default function SignUpForm() {
     }
   `;
 
-  // VITE_API_BASE_URL = "https://open-format-3d-viewer.onrender.com/v1"
-  // auth/google is under /v1, so: VITE_API_BASE_URL + "/auth/google"
-  const googleAuthUrl = `${import.meta.env.VITE_API_BASE_URL}/auth/google`;
+  const googleAuthUrl = getGoogleAuthUrl();
 
   return (
     <div className="text-gray-900">
@@ -73,6 +74,51 @@ export default function SignUpForm() {
           Join the Open Format 3D Platform
         </p>
       </div>
+
+      {/* Mock Mode success banner */}
+      {localStorage.getItem("use_mock_api") === "true" && (
+        <div className="mb-5 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3.5 text-sm text-emerald-800 flex flex-col gap-2">
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 shrink-0">✨</span>
+            <span>
+              <strong>Mock API Mode Active:</strong> You are using a simulated local database. All login, signup, project, and model features will work offline.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem("use_mock_api");
+              localStorage.removeItem("mock_current_user");
+              window.location.reload();
+            }}
+            className="mt-1 self-start rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors"
+          >
+            Switch to Real Backend
+          </button>
+        </div>
+      )}
+
+      {/* Server health banner */}
+      {localStorage.getItem("use_mock_api") !== "true" && (serverStatus === "degraded" || serverStatus === "unreachable") && (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm text-amber-800 flex flex-col gap-2">
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 shrink-0">⚠️</span>
+            <span>
+              <strong>Server issue:</strong> {serverDetail || "The server is currently experiencing problems."} Registration may not work right now.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.setItem("use_mock_api", "true");
+              window.location.reload();
+            }}
+            className="mt-1 self-start rounded bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 transition-colors"
+          >
+            Enable Mock API Mode (Offline Test)
+          </button>
+        </div>
+      )}
 
       {/* Google — direct <a> tag, bypasses Vite proxy (correct for OAuth) */}
       <a

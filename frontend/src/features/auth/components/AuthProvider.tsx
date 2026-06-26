@@ -1,23 +1,22 @@
 import { useEffect, type ReactNode } from "react";
-import { getCurrentUser } from "../api/authApi";
+import { refreshSession } from "../api/authApi";
 import { useAuthStore } from "../store/authStore";
 
-const SKIP = ["/login", "/register", "/auth/callback"];
+const PUBLIC_ROUTES = ["/login", "/register", "/auth/callback"];
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const setUser = useAuthStore((s) => s.setUser);
   const setLoading = useAuthStore((s) => s.setLoading);
-  const isAuthLoading = useAuthStore((s) => s.isAuthLoading);
 
   useEffect(() => {
-    if (SKIP.includes(window.location.pathname)) {
+    if (PUBLIC_ROUTES.includes(window.location.pathname)) {
       setLoading(false);
       return;
     }
 
-    async function init() {
+    async function bootstrap() {
       try {
-        const user = await getCurrentUser();
+        const user = await refreshSession();
         setUser(user);
       } catch {
         setUser(null);
@@ -26,12 +25,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    init();
+    bootstrap();
   }, [setLoading, setUser]);
-
-  if (isAuthLoading) {
-    return <div>Loading...</div>;
-  }
 
   return <>{children}</>;
 }

@@ -1,92 +1,64 @@
 import { useState } from "react";
-import { Crown, User, Mail, BadgeCheck } from "lucide-react";
+import { Settings } from "lucide-react";
 import { useAuthStore } from "../../features/auth/store/authStore";
+import ApiKeysTab from "../../features/settings/components/ApiKeysTab";
+import WebhooksTab from "../../features/settings/components/WebhooksTab";
+import AccountTab from "../../features/settings/components/AccountTab";
+import type { PlanType } from "../../features/settings/types/settings.types";
 
-type PlanType = "Free" | "Pro" | "Enterprise";
+type Tab = "Account" | "Security" | "API Keys" | "webhooks" | "preferences";
+const TABS: Tab[] = [
+  "Account",
+  "Security",
+  "API Keys",
+  "webhooks",
+  "preferences",
+];
 
 export default function UserProfilePage() {
-  const user = useAuthStore((state) => state.user);
-  const [plan, setPlan] = useState<PlanType>("Free");
+  const user = useAuthStore((s) => s.user);
+  const [activeTab, setActiveTab] = useState<Tab>("API Keys");
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading user...
-      </div>
-    );
-  }
+  // Derive plan; backend may return it on the user object in future
+  const plan: PlanType = ((user as any)?.plan as PlanType) ?? "Free";
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb] p-8">
-      <div className="mx-auto max-w-4xl">
-        {/* Header */}
-        <h1 className="text-3xl font-bold text-slate-900">User Profile</h1>
-        <p className="mt-2 text-slate-500">
-          Manage account and subscription plan
-        </p>
+    <div className="min-h-screen bg-[#f8f8fc] p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Page heading */}
+        <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
 
-        {/* Profile Card */}
-        <div className="mt-8 rounded-2xl bg-white p-8 shadow-sm">
-          <div className="flex items-center gap-5">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-2xl font-bold text-white">
-              {user.full_name?.slice(0, 2).toUpperCase()}
-            </div>
-
-            <div>
-              <h2 className="text-2xl font-semibold">{user.full_name}</h2>
-              <p className="text-slate-500">{user.email}</p>
-            </div>
-          </div>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl border p-4">
-              <User size={18} />
-              <p className="mt-2 text-sm text-slate-500">User ID</p>
-              <p className="text-sm font-medium break-all">{user.id}</p>
-            </div>
-
-            <div className="rounded-xl border p-4">
-              <Mail size={18} />
-              <p className="mt-2 text-sm text-slate-500">Email</p>
-              <p className="text-sm font-medium">{user.email}</p>
-            </div>
-
-            <div className="rounded-xl border p-4">
-              <BadgeCheck size={18} />
-              <p className="mt-2 text-sm text-slate-500">Current Plan</p>
-              <p className="text-sm font-medium">{plan}</p>
-            </div>
-          </div>
+        {/* Tabs */}
+        <div className="flex gap-1 mt-5 border-b border-[#d9cfc4]">
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2.5 text-sm font-medium capitalize transition-all relative ${
+                activeTab === tab
+                  ? "text-[#534AB7]"
+                  : "text-[#777] hover:text-[#333]"
+              }`}
+            >
+              {tab}
+              {activeTab === tab && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#534AB7] rounded-t" />
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* Plans */}
-        <div className="mt-8 rounded-2xl bg-white p-8 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Crown size={20} />
-            <h2 className="text-xl font-semibold">Subscription Plans</h2>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {["Free", "Pro", "Enterprise"].map((item) => (
-              <button
-                key={item}
-                onClick={() => setPlan(item as PlanType)}
-                className={`rounded-2xl border p-6 text-left transition ${
-                  plan === item
-                    ? "border-blue-600 bg-blue-50"
-                    : "border-slate-200"
-                }`}
-              >
-                <h3 className="font-semibold">{item}</h3>
-
-                <p className="mt-2 text-sm text-slate-500">
-                  {item === "Free" && "Basic access"}
-                  {item === "Pro" && "Advanced viewer + collaboration"}
-                  {item === "Enterprise" && "Full enterprise features"}
-                </p>
-              </button>
-            ))}
-          </div>
+        {/* Tab content */}
+        <div className="mt-6">
+          {activeTab === "Account" && <AccountTab />}
+          {activeTab === "API Keys" && <ApiKeysTab plan={plan} />}
+          {activeTab === "webhooks" && <WebhooksTab />}
+          {(activeTab === "Security" || activeTab === "preferences") && (
+            <div className="mt-16 text-center text-[#bbb]">
+              <Settings size={36} className="mx-auto mb-3 opacity-25" />
+              <p className="text-sm">{activeTab} settings coming soon</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

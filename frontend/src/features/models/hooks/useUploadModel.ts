@@ -5,6 +5,7 @@ import {
   uploadFileToS3,
 } from "../api/modelApi";
 import { useUploadStore } from "../store/uploadStore";
+import { isMockModeActive } from "../../../lib/mockApi";
 
 export function useUploadModel(projectId: string) {
   const { setProgress, setUploading, reset } = useUploadStore();
@@ -25,7 +26,15 @@ export function useUploadModel(projectId: string) {
 
       setProgress(100);
 
-      await confirmUpload(uploadData.model_id);
+      try {
+        await confirmUpload(uploadData.model_id);
+      } catch (error) {
+        if (uploadData.upload_url.startsWith("local://") || isMockModeActive()) {
+          console.warn("Skipping confirmUpload failure in local/mock mode", error);
+        } else {
+          throw error;
+        }
+      }
 
       return uploadData.model_id;
     },

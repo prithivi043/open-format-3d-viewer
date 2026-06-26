@@ -15,6 +15,12 @@ export default defineConfig(({ mode }) => {
 
     server: {
       proxy: {
+        // Public health check lives at /health (not under /v1).
+        "/health": {
+          target: backendOrigin,
+          changeOrigin: true,
+          secure: true,
+        },
         // Every request starting with /v1 is forwarded to the backend.
         // The browser only ever sees http://localhost:5173/v1/... → no CORS.
         "/v1": {

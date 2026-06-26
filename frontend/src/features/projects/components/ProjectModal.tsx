@@ -48,15 +48,24 @@ export default function ProjectModal({ isOpen, onClose, project }: Props) {
 
   const onSubmit = (data: ProjectFormData) => {
     if (project) {
-      updateMutation.mutate({
-        projectId: project.id,
-        data,
-      });
+      updateMutation.mutate(
+        {
+          projectId: project.id,
+          data,
+        },
+        {
+          onSuccess: () => {
+            onClose();
+          },
+        },
+      );
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(data, {
+        onSuccess: () => {
+          onClose();
+        },
+      });
     }
-
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -81,6 +90,12 @@ export default function ProjectModal({ isOpen, onClose, project }: Props) {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {(createMutation.isError || updateMutation.isError) && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-sm text-red-400">
+              {createMutation.error?.message || updateMutation.error?.message || "An error occurred."}
+            </div>
+          )}
+
           {/* Name */}
           <div>
             <label className="mb-2 block text-sm text-slate-400">

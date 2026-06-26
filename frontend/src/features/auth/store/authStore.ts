@@ -1,19 +1,23 @@
 import { create } from "zustand";
-import type { AuthUser } from "../types/auth.types";
+import type { User } from "../api/authApi";
+import type { PlanType } from "../../settings/types/settings.types";
 
-type AuthState = {
-  user: AuthUser | null;
+interface AuthState {
+  user: User | null;
   isAuthenticated: boolean;
   isAuthLoading: boolean;
-  setUser: (user: AuthUser | null) => void;
+  plan: PlanType;
+  setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
+  setPlan: (plan: PlanType) => void;
   logout: () => void;
-};
+}
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isAuthLoading: true,
+  plan: (localStorage.getItem("user-plan") as PlanType) || "Free",
 
   setUser: (user) =>
     set({
@@ -27,10 +31,19 @@ export const useAuthStore = create<AuthState>((set) => ({
       isAuthLoading: loading,
     }),
 
-  logout: () =>
+  setPlan: (plan) => {
+    localStorage.setItem("user-plan", plan);
+    set({ plan });
+  },
+
+  logout: () => {
+    localStorage.removeItem("user-plan");
+
     set({
       user: null,
       isAuthenticated: false,
       isAuthLoading: false,
-    }),
+      plan: "Free",
+    });
+  },
 }));

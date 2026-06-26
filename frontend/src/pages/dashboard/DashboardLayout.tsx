@@ -141,13 +141,6 @@ export default function DashboardLayout() {
       active: activeNav === "annotations",
       onClick: () => setActiveNav("annotations"),
     },
-    {
-      label: "Notifications",
-      icon: <Bell size={16} />,
-      active: false,
-      badge: 6,
-      onClick: () => {},
-    },
   ];
 
   return (

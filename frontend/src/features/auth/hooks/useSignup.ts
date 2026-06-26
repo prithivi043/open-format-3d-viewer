@@ -1,19 +1,19 @@
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { register, getCurrentUser } from "../api/authApi";
-import { useAuthStore } from "../store/authStore";
+import { register } from "../api/authApi";
 
 export const useSignup = () => {
-  const setUser = useAuthStore((s) => s.setUser);
   const navigate = useNavigate();
 
   return useMutation({
     mutationFn: register,
 
-    onSuccess: async () => {
-      const user = await getCurrentUser();
-      setUser(user);
-      navigate("/dashboard");
+    onSuccess: () => {
+      navigate("/login?registered=success", { replace: true });
+    },
+
+    onError: (error: Error) => {
+      console.error("Sign up error:", error.message);
     },
   });
 };
