@@ -36,7 +36,7 @@ import type {
   PropertyRow,
   AnnotationIssue,
 } from "../types/viewer.types";
-import type { Annotation } from "../../models/types/model.types";
+import type { Annotation, CreateAnnotationPayload } from "../../models/types/model.types";
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -283,23 +283,23 @@ function worldToCanvas(
   const w = canvas?.clientWidth ?? 800;
   const h = canvas?.clientHeight ?? 600;
 
-  const vm = viewer.camera.viewMatrix as ArrayLike<number>;
-  const pm = viewer.camera.projMatrix as ArrayLike<number>;
+  const vm = Array.from(viewer.camera.viewMatrix as ArrayLike<number>);
+  const pm = Array.from(viewer.camera.projMatrix as ArrayLike<number>);
 
-  if (!vm || !pm) return null;
+  if (!vm || !pm || vm.length < 16 || pm.length < 16) return null;
 
   const [wx, wy, wz] = worldPos;
 
   // Step 1: view transform  (column-major: result[i] = row-dot)
-  const vx = vm[0] * wx + vm[4] * wy + vm[8]  * wz + vm[12];
-  const vy = vm[1] * wx + vm[5] * wy + vm[9]  * wz + vm[13];
-  const vz = vm[2] * wx + vm[6] * wy + vm[10] * wz + vm[14];
-  const vw = vm[3] * wx + vm[7] * wy + vm[11] * wz + vm[15];
+  const vx = (vm[0] ?? 0) * wx + (vm[4] ?? 0) * wy + (vm[8] ?? 0)  * wz + (vm[12] ?? 0);
+  const vy = (vm[1] ?? 0) * wx + (vm[5] ?? 0) * wy + (vm[9] ?? 0)  * wz + (vm[13] ?? 0);
+  const vz = (vm[2] ?? 0) * wx + (vm[6] ?? 0) * wy + (vm[10] ?? 0) * wz + (vm[14] ?? 0);
+  const vw = (vm[3] ?? 0) * wx + (vm[7] ?? 0) * wy + (vm[11] ?? 0) * wz + (vm[15] ?? 0);
 
   // Step 2: projection transform
-  const cx = pm[0] * vx + pm[4] * vy + pm[8]  * vz + pm[12] * vw;
-  const cy = pm[1] * vx + pm[5] * vy + pm[9]  * vz + pm[13] * vw;
-  const cw = pm[3] * vx + pm[7] * vy + pm[11] * vz + pm[15] * vw;
+  const cx = (pm[0] ?? 0) * vx + (pm[4] ?? 0) * vy + (pm[8] ?? 0)  * vz + (pm[12] ?? 0) * vw;
+  const cy = (pm[1] ?? 0) * vx + (pm[5] ?? 0) * vy + (pm[9] ?? 0)  * vz + (pm[13] ?? 0) * vw;
+  const cw = (pm[3] ?? 0) * vx + (pm[7] ?? 0) * vy + (pm[11] ?? 0) * vz + (pm[15] ?? 0) * vw;
 
   if (Math.abs(cw) < 1e-6) return null; // behind camera
 
@@ -396,11 +396,8 @@ export function ViewerProvider({ modelId, children }: Props) {
 
   // 2. Annotation mutations
   const createMutation = useMutation({
-    mutationFn: (payload: {
-      position_xyz: number[];
-      normal_xyz: number[];
-      message: string;
-    }) => createAnnotation(modelId, payload),
+    mutationFn: (payload: CreateAnnotationPayload) =>
+      createAnnotation(modelId, payload),
     onSuccess: (newAnno) => {
       queryClient.invalidateQueries({
         queryKey: ["model-annotations", modelId],
@@ -534,7 +531,10 @@ export function ViewerProvider({ modelId, children }: Props) {
 
     // Load new pins
     serverAnnotations.forEach((anno) => {
-      const parsedPos = parseNumberArray(anno.position_xyz, [0, 0, 0]);
+      const parsedPos = parseNumberArray(
+        [anno.position.x, anno.position.y, anno.position.z],
+        [0, 0, 0],
+      );
 
       plugin.createAnnotation({
         id: anno.id,
@@ -546,7 +546,7 @@ export function ViewerProvider({ modelId, children }: Props) {
           id: anno.id,
           glyph: "A",
           title: "Observation",
-          description: anno.message,
+          description: anno.body ?? "",
         },
       });
     });
@@ -656,23 +656,25 @@ export function ViewerProvider({ modelId, children }: Props) {
 
           performance.mark("viewer-load-start");
 
+          const xeokit = await import("@xeokit/xeokit-sdk");
           const {
             Viewer,
             XKTLoaderPlugin,
-            GLTFLoaderPlugin,
-            WebIFCLoaderPlugin,
             AnnotationsPlugin,
             DistanceMeasurementsPlugin,
             DistanceMeasurementsMouseControl,
             SectionPlanesPlugin,
-          } = await import("@xeokit/xeokit-sdk");
+          } = xeokit;
+          // These plugins exist at runtime but may not be in the TS declarations
+          const GLTFLoaderPlugin = (xeokit as any).GLTFLoaderPlugin;
+          const WebIFCLoaderPlugin = (xeokit as any).WebIFCLoaderPlugin;
 
           if (!active) return;
 
           const viewer = new Viewer({
-            canvasElement: canvasRef.current,
+            canvasElement: canvasRef.current as HTMLCanvasElement,
             transparent: true,
-          }) as unknown as ViewerInstance;
+          } as any) as unknown as ViewerInstance;
 
           viewerRef.current = viewer;
 
@@ -698,7 +700,7 @@ export function ViewerProvider({ modelId, children }: Props) {
           });
 
           // Initialize plugins
-          const annotationsPlugin = new AnnotationsPlugin(viewer as unknown as never, {
+          const annotationsPlugin = new (AnnotationsPlugin as any)(viewer, {
             container: canvasRef.current?.parentElement ?? document.body,
             markerHTML: "<div class='xeokit-annotation-marker'>{{glyph}}</div>",
             labelHTML:
@@ -718,7 +720,7 @@ export function ViewerProvider({ modelId, children }: Props) {
               title: "Observation",
               description: "Annotation point",
             },
-          }) as any;
+          } as any) as any;
           annotationsPluginRef.current = annotationsPlugin;
 
           annotationsPlugin.on("markerClicked", (anno: any) => {
@@ -749,12 +751,12 @@ export function ViewerProvider({ modelId, children }: Props) {
           };
           annoDeleteContainer?.addEventListener("click", handleAnnoDeleteClick);
 
-          const distanceMeasurements = new DistanceMeasurementsPlugin(
-            viewer as unknown as never,
+          const distanceMeasurements = new (DistanceMeasurementsPlugin as any)(
+            viewer,
             { container: canvasRef.current?.parentElement ?? document.body },
           ) as any;
           const distanceMeasurementsControl =
-            new DistanceMeasurementsMouseControl(distanceMeasurements as unknown as never) as any;
+            new DistanceMeasurementsMouseControl(distanceMeasurements as any) as any;
           distanceMeasurementsControl.snapToVertex = true;
           distanceMeasurementsControl.snapToEdge = true;
           distanceMeasurementsControlRef.current = distanceMeasurementsControl;
@@ -838,9 +840,9 @@ export function ViewerProvider({ modelId, children }: Props) {
               excludeUnclassifiedObjects: false,
             } as unknown as never) as unknown as LoadableModel;
           } else {
-            const loader = new XKTLoaderPlugin(viewer as unknown as never, {
+            const loader = new (XKTLoaderPlugin as any)(viewer, {
               dataSource: ds,
-            } as never);
+            });
             model = loader.load({
               id: modelId,
               src: objectUrl,
@@ -1140,7 +1142,7 @@ export function ViewerProvider({ modelId, children }: Props) {
       await createMutation.mutateAsync({
         title: "Annotation",
         body: message,
-        position: { x: worldPos[0], y: worldPos[1], z: worldPos[2] },
+        position: { x: worldPos[0] ?? 0, y: worldPos[1] ?? 0, z: worldPos[2] ?? 0 },
       });
     } catch (err) {
       console.error("Failed to save annotation:", err);

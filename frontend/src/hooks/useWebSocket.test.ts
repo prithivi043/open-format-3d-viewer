@@ -16,7 +16,7 @@ class MockWebSocket {
   onmessage: ((event: { data: string }) => void) | null = null;
   onclose: (() => void) | null = null;
   onerror: (() => void) | null = null;
-  readyState = WebSocket.CONNECTING;
+  readyState: number = WebSocket.CONNECTING;
   close = vi.fn(() => {
     this.readyState = WebSocket.CLOSED;
     this.onclose?.();
