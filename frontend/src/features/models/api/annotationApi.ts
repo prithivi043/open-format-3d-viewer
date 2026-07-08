@@ -24,3 +24,11 @@ export async function patchAnnotation(
     body: data,
   });
 }
+
+export async function deleteAnnotation(
+  annotationId: string,
+): Promise<void> {
+  return apiClient<void>(`/annotations/${annotationId}`, {
+    method: "DELETE",
+  });
+}

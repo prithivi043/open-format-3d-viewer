@@ -1,11 +1,23 @@
-# Environment files
+# ──────────────────────────────────────────────────────────────
+# Open Format 3D Viewer — Frontend
+# Production .gitignore for GitHub + Vercel
+# ──────────────────────────────────────────────────────────────
 
+# ── Environment ──────────────────────────────────────────────
 .env
 .env.*
 !.env.example
 
-# Logs
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
 
+# ── Build output ─────────────────────────────────────────────
+dist/
+dist-ssr/
+build/
+.vercel/
+
+# ── Logs ─────────────────────────────────────────────────────
 logs/
 *.log
 npm-debug.log*
@@ -14,40 +26,38 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Dependencies
+# ── Testing artifacts ────────────────────────────────────────
+coverage/
+test-results/
+playwright-report/
+blob-report/
 
-node_modules/
-
-# Build output
-
-dist/
-dist-ssr/
-build/
-
-# Local config
-
+# ── Local config ─────────────────────────────────────────────
 *.local
 
-# Archives / backups
-
-*.zip
-*.rar
-*.7z
-
-# Ignore accidental nested repositories
-
-Open-Format-3D-Viewer/
-
-# Editor directories and files
-
-.vscode/*
-!.vscode/extensions.json
-.idea/
+# ── OS files ─────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+Desktop.ini
+
+# ── Editor / IDE ─────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.swp
 *.swo
+*~
+
+# ── Archives / backups ───────────────────────────────────────
+*.zip
+*.rar
+*.7z
+*.tar.gz
+
+# ── Ignore accidental nested repos / duplicates ──────────────
+Open-Format-3D-Viewer/

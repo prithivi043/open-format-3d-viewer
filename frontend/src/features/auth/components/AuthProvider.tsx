@@ -1,32 +1,40 @@
 import { useEffect, type ReactNode } from "react";
-import { refreshSession } from "../api/authApi";
+import { refreshSession, getCurrentUser } from "../api/authApi";
 import { useAuthStore } from "../store/authStore";
+import { isMockModeActive } from "../../../lib/mockApi";
 
 const PUBLIC_ROUTES = ["/login", "/register", "/auth/callback"];
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
-  const setUser = useAuthStore((s) => s.setUser);
-  const setLoading = useAuthStore((s) => s.setLoading);
-
   useEffect(() => {
     if (PUBLIC_ROUTES.includes(window.location.pathname)) {
-      setLoading(false);
+      useAuthStore.getState().setLoading(false);
       return;
     }
 
     async function bootstrap() {
       try {
-        const user = await refreshSession();
-        setUser(user);
+        // In mock mode, skip the backend /auth/refresh (would 500 or CORS).
+        // Just read the current mock user directly from localStorage.
+        if (isMockModeActive()) {
+          const user = await getCurrentUser();
+          useAuthStore.getState().setUser(user);
+        } else {
+          const user = await refreshSession();
+          useAuthStore.getState().setUser(user);
+        }
       } catch {
-        setUser(null);
+        useAuthStore.getState().setUser(null);
       } finally {
-        setLoading(false);
+        useAuthStore.getState().setLoading(false);
       }
     }
 
     bootstrap();
-  }, [setLoading, setUser]);
+    // Intentionally empty: getState() is always stable, no deps needed
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return <>{children}</>;
 }
+

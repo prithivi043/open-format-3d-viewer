@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate, useRouteError } from "react-router-dom";
 import ProtectedRoute from "../components/ProtectedRoute";
@@ -16,8 +17,9 @@ function RouteError() {
 
 function Loader() {
   return (
-    <div className="h-screen flex items-center justify-center bg-[#0A0D1A] text-white">
-      Loading…
+    <div className="h-screen w-screen flex flex-col items-center justify-center bg-[#080a1a] text-white">
+      <div className="w-10 h-10 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin mb-4" />
+      <p className="text-sm font-medium text-slate-400">Loading page components...</p>
     </div>
   );
 }

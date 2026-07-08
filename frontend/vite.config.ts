@@ -6,8 +6,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
   const backendOrigin = env.VITE_API_BASE_URL
-    ? // Strip any trailing path (e.g. /v1) — target must be origin only
-      new URL(env.VITE_API_BASE_URL).origin
+    ? new URL(env.VITE_API_BASE_URL).origin
     : "https://open-format-3d-viewer.onrender.com";
 
   return {
@@ -15,19 +14,50 @@ export default defineConfig(({ mode }) => {
 
     server: {
       proxy: {
-        // Public health check lives at /health (not under /v1).
         "/health": {
           target: backendOrigin,
           changeOrigin: true,
           secure: true,
         },
-        // Every request starting with /v1 is forwarded to the backend.
-        // The browser only ever sees http://localhost:5173/v1/... → no CORS.
+
         "/v1": {
-          target: backendOrigin, // https://open-format-3d-viewer.onrender.com
-          changeOrigin: true, // rewrites the Host header to match target
-          secure: true, // verify TLS cert on the target
-          // No rewrite needed — /v1/projects stays /v1/projects on the backend
+          target: backendOrigin,
+          changeOrigin: true,
+          secure: true,
+        },
+      },
+    },
+
+    build: {
+      chunkSizeWarningLimit: 2000,
+
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            // xeokit huge bundle → separate chunk
+            if (id.includes("@xeokit")) {
+              return "xeokit";
+            }
+
+            // React core
+            if (
+              id.includes("react") ||
+              id.includes("react-dom") ||
+              id.includes("react-router")
+            ) {
+              return "react-vendor";
+            }
+
+            // React Query
+            if (id.includes("@tanstack")) {
+              return "query";
+            }
+
+            // Remaining third-party libs
+            if (id.includes("node_modules")) {
+              return "vendor";
+            }
+          },
         },
       },
     },

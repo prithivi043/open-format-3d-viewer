@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { ViewerState, ToolMode, ElementProperties, AnnotationIssue } from "../types/viewer.types";
+import type { ViewerState, ToolMode, ElementProperties, AnnotationIssue, IFCNode, ViewerMember } from "../types/viewer.types";
+
 
 export const useViewerStore = create<ViewerState>((set) => ({
   activeTool: "orbit",
@@ -15,6 +16,16 @@ export const useViewerStore = create<ViewerState>((set) => ({
   isPropertiesOpen: true,
   activeRightTab: "properties",
   expandedNodes: new Set(["building", "level1"]),
+  modelTree: [],
+  projectMembers: [],
+  annotationModal: {
+    isOpen: false,
+    worldPos: null,
+    entityId: null,
+    mockScreenPos: null,
+  },
+
+
 
   setActiveTool: (tool: ToolMode) => set({ activeTool: tool }),
   setSelectedObjectId: (id) => set({ selectedObjectId: id }),
@@ -36,4 +47,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
       else next.add(nodeId);
       return { expandedNodes: next };
     }),
+  setModelTree: (tree: IFCNode[]) => set({ modelTree: tree }),
+  setProjectMembers: (members: ViewerMember[]) => set({ projectMembers: members }),
+  setAnnotationModal: (modal) => set({ annotationModal: modal }),
 }));
+

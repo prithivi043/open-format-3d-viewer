@@ -1,6 +1,24 @@
 export type ProjectRole = "viewer" | "editor" | "admin";
 export type ProjectStatus = "Draft" | "Ready" | "Processing";
 
+// ── Member detail (full info returned by the API) ────────────────────────────
+export interface ProjectMemberDetail {
+  id: string;
+  projectId: string;
+  userId: string;
+  email: string;
+  fullName: string;
+  role: ProjectRole;
+  joinedAt: string;
+  /** Hex color used for the avatar in the viewer / member list */
+  avatarColor: string;
+}
+
+export interface InviteMemberPayload {
+  email: string;
+  role: ProjectRole;
+}
+
 export interface ProjectDTO {
   id: string;
   owner_id: string;

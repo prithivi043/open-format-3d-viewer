@@ -4,6 +4,8 @@ import type {
   ProjectDTO,
   CreateProjectPayload,
   UpdateProjectPayload,
+  ProjectMemberDetail,
+  InviteMemberPayload,
 } from "../types/project.types";
 
 const BASE = "/projects";
@@ -36,13 +38,10 @@ export async function getProject(projectId: string): Promise<Project> {
 export async function createProject(
   data: CreateProjectPayload,
 ): Promise<Project> {
-  // Use apiClient (relative path) so the request goes through the Vite proxy.
-  // Never use BASE_URL + fetch directly — that bypasses the proxy and triggers CORS.
   const res = await apiClient<ProjectDTO>(BASE, {
     method: "POST",
     body: JSON.stringify(data),
   });
-
   return mapProject(res);
 }
 
@@ -54,12 +53,38 @@ export async function updateProject(
     method: "PATCH",
     body: JSON.stringify(data),
   });
-
   return mapProject(res);
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
   return apiClient<void>(`${BASE}/${projectId}`, {
+    method: "DELETE",
+  });
+}
+
+// ── Member management ─────────────────────────────────────────────────────────
+
+export async function getProjectMembers(
+  projectId: string,
+): Promise<ProjectMemberDetail[]> {
+  return apiClient<ProjectMemberDetail[]>(`${BASE}/${projectId}/members`);
+}
+
+export async function inviteProjectMember(
+  projectId: string,
+  payload: InviteMemberPayload,
+): Promise<ProjectMemberDetail> {
+  return apiClient<ProjectMemberDetail>(`${BASE}/${projectId}/members`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function removeProjectMember(
+  projectId: string,
+  userId: string,
+): Promise<void> {
+  return apiClient<void>(`${BASE}/${projectId}/members/${userId}`, {
     method: "DELETE",
   });
 }

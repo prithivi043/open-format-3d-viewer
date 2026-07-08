@@ -20,7 +20,7 @@ export default function UserProfilePage() {
   const [activeTab, setActiveTab] = useState<Tab>("API Keys");
 
   // Derive plan; backend may return it on the user object in future
-  const plan: PlanType = ((user as any)?.plan as PlanType) ?? "Free";
+  const plan: PlanType = (user && "plan" in user ? user.plan as PlanType : "Free") ?? "Free";
 
   return (
     <div className="min-h-screen bg-[#f8f8fc] p-8">

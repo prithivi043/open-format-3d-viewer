@@ -1,14 +1,6 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import {
-  LayoutDashboard,
-  Folder,
-  Box,
-  Pencil,
-  Package,
-  Plus,
-  LogOut,
-} from "lucide-react";
+import { LayoutDashboard, Folder, Box, Plus, LogOut } from "lucide-react";
 import { useAuthStore } from "../../features/auth/store/authStore";
 import { useLayoutStore } from "../../stores/layoutStore";
 import ProjectModal from "../../features/projects/components/ProjectModal";
@@ -93,10 +85,6 @@ export default function DashboardLayout() {
       setActiveNav("projects");
     } else if (path.startsWith("/models")) {
       setActiveNav("models");
-    } else if (path.startsWith("/viewer")) {
-      setActiveNav("viewer");
-    } else if (path.startsWith("/annotations")) {
-      setActiveNav("annotations");
     }
   }, [location.pathname, setActiveNav]);
 
@@ -127,18 +115,6 @@ export default function DashboardLayout() {
         setActiveNav("models");
         navigate("/models/upload");
       },
-    },
-    {
-      label: "3D Viewer",
-      icon: <Package size={15} />,
-      active: activeNav === "viewer",
-      onClick: () => {},
-    },
-    {
-      label: "Annotations",
-      icon: <Pencil size={16} />,
-      active: activeNav === "annotations",
-      onClick: () => setActiveNav("annotations"),
     },
   ];
 
@@ -203,8 +179,16 @@ export default function DashboardLayout() {
             style={{ borderTop: `0.5px solid ${SB.border}` }}
           >
             <div
+              role="button"
+              tabIndex={0}
               onClick={() => navigate("/me")}
-              className="flex items-center gap-3 cursor-pointer rounded-xl px-2 py-2 hover:bg-white/[0.03]"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate("/me");
+                }
+              }}
+              className="w-full text-left flex items-center gap-3 cursor-pointer rounded-xl px-2 py-2 hover:bg-white/[0.03] focus:outline-none focus:ring-1 focus:ring-purple-500"
             >
               <div className="w-[34px] h-[34px] text-[12px] font-semibold rounded-full bg-[#1a1d35] flex items-center justify-center text-[#534AB7]">
                 {initials}

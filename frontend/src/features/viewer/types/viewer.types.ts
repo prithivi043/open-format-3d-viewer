@@ -7,6 +7,13 @@ export type ToolMode =
   | "section"
   | "annotation";
 
+/** Slim member representation used in the viewer status bar */
+export interface ViewerMember {
+  id: string;
+  fullName: string;
+  avatarColor: string;
+}
+
 export interface IFCNode {
   id: string;
   name: string;
@@ -15,16 +22,19 @@ export interface IFCNode {
   objectId?: string;
 }
 
+/** A single key-value property row (real or derived) */
+export interface PropertyRow {
+  label: string;
+  value: string;
+  group?: string;
+}
+
 export interface ElementProperties {
   elementName: string;
   ifcType: string;
   globalModelId: string;
-  material: string;
-  height: string;
-  length: string;
-  width: string;
-  volume: string;
-  fireRating: string;
+  /** Dynamic properties extracted from xeokit metaObject */
+  attributes: PropertyRow[];
 }
 
 export interface AnnotationIssue {
@@ -51,6 +61,17 @@ export interface ViewerState {
   isPropertiesOpen: boolean;
   activeRightTab: "properties" | "annotations";
   expandedNodes: Set<string>;
+  /** Real model tree built from xeokit MetaModel after load */
+  modelTree: IFCNode[];
+  /** Real project members loaded from the API after model loads */
+  projectMembers: ViewerMember[];
+  annotationModal: {
+    isOpen: boolean;
+    worldPos: [number, number, number] | null;
+    entityId: string | null;
+    mockScreenPos: [number, number] | null;
+  };
+
 
   setActiveTool: (tool: ToolMode) => void;
   setSelectedObjectId: (id: string | null) => void;
@@ -65,4 +86,12 @@ export interface ViewerState {
   toggleProperties: () => void;
   setActiveRightTab: (tab: "properties" | "annotations") => void;
   toggleNodeExpanded: (nodeId: string) => void;
+  setModelTree: (tree: IFCNode[]) => void;
+  setProjectMembers: (members: ViewerMember[]) => void;
+  setAnnotationModal: (modal: {
+    isOpen: boolean;
+    worldPos: [number, number, number] | null;
+    entityId: string | null;
+    mockScreenPos: [number, number] | null;
+  }) => void;
 }

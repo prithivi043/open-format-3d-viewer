@@ -1,8 +1,9 @@
 import {
   Home, Maximize2, RotateCcw, Hand, ZoomIn, MousePointer2,
-  Ruler, Tag, Scissors, Share2, Settings, Fullscreen,
+  Ruler, Tag, Scissors, Share2, Fullscreen,
 } from "lucide-react";
 import { useViewerStore } from "../store/viewerStore";
+import { useViewerContext } from "../context/ViewerProvider";
 import type { ToolMode } from "../types/viewer.types";
 
 interface ToolBtn {
@@ -15,10 +16,11 @@ interface ToolBtn {
 
 export function ViewerToolbar() {
   const { activeTool, setActiveTool } = useViewerStore();
+  const { goHome, fitToView, shareView } = useViewerContext();
 
   const tools: ToolBtn[] = [
-    { icon: <Home size={16} />, label: "Home", action: () => {} },
-    { icon: <Maximize2 size={16} />, label: "Fit", action: () => {} },
+    { icon: <Home size={16} />, label: "Home", action: goHome },
+    { icon: <Maximize2 size={16} />, label: "Fit", action: fitToView },
     { icon: <RotateCcw size={16} />, label: "Orbit", tool: "orbit" },
     { icon: <Hand size={16} />, label: "Pan", tool: "pan" },
     { icon: <ZoomIn size={16} />, label: "Zoom", tool: "zoom" },
@@ -26,8 +28,7 @@ export function ViewerToolbar() {
     { icon: <Ruler size={16} />, label: "Measure", tool: "measure" },
     { icon: <Tag size={16} />, label: "Annotation", tool: "annotation" },
     { icon: <Scissors size={16} />, label: "Section", tool: "section", divider: true },
-    { icon: <Share2 size={16} />, label: "Share", action: () => {} },
-    { icon: <Settings size={16} />, label: "Setting", action: () => {} },
+    { icon: <Share2 size={16} />, label: "Share", action: shareView },
   ];
 
   return (

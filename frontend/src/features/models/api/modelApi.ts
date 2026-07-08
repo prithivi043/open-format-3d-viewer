@@ -4,6 +4,7 @@ import type {
   UploadUrlResponse,
   Model,
 } from "../types/model.types";
+import type { IFCNode } from "../../viewer/types/viewer.types";
 import { isMockModeActive } from "../../../lib/mockApi";
 import { localModelStore } from "../../../lib/localModelStore";
 
@@ -33,8 +34,18 @@ export async function getModel(modelId: string): Promise<Model> {
   return apiClient<Model>(`/models/${modelId}`);
 }
 
-export async function getModelTree(modelId: string): Promise<any> {
-  return apiClient<any>(`/models/${modelId}/tree`);
+export async function getModelTree(modelId: string): Promise<IFCNode[]> {
+  return apiClient<IFCNode[]>(`/models/${modelId}/tree`);
+}
+
+export async function getProjectModels(projectId: string): Promise<Model[]> {
+  return apiClient<Model[]>(`/projects/${projectId}/models`);
+}
+
+export async function deleteModel(modelId: string): Promise<void> {
+  return apiClient<void>(`/models/${modelId}`, {
+    method: "DELETE",
+  });
 }
 
 

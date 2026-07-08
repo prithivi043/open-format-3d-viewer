@@ -177,8 +177,16 @@ function ProjectCard({
 }) {
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
-      className="bg-white rounded-[10px] overflow-hidden cursor-pointer transition-all duration-150"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="bg-white rounded-[10px] overflow-hidden cursor-pointer transition-all duration-150 focus:outline-none focus:ring-1 focus:ring-purple-500"
       style={{ border: "0.5px solid #e5e7eb" }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#c7d2fe")}
       onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#e5e7eb")}

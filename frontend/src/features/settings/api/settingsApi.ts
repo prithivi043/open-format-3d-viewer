@@ -11,7 +11,7 @@ import type {
 
 /** GET /auth/keys — list all keys (masked, no raw key) */
 export async function listApiKeys(): Promise<ApiKey[]> {
-  const keys = await apiClient<any[]>("/auth/keys");
+  const keys = await apiClient<ApiKey[]>("/auth/keys");
 
   return keys.map((key) => ({
     id: key.id,

@@ -1,4 +1,5 @@
 import { apiClient } from "../../../lib/apiClient";
+import { useAuthStore } from "../store/authStore";
 
 export type User = {
   id: string;
@@ -28,10 +29,14 @@ export function getGoogleAuthUrl(): string {
 }
 
 export async function login(payload: LoginPayload): Promise<User> {
-  await apiClient<unknown>("/auth/login", {
+  const data = await apiClient<{ access_token?: string }>("/auth/login", {
     method: "POST",
     body: payload,
   });
+
+  if (data?.access_token) {
+    useAuthStore.getState().setAccessToken(data.access_token);
+  }
 
   return getCurrentUser();
 }
@@ -48,9 +53,13 @@ export async function getCurrentUser(): Promise<User> {
 }
 
 export async function refreshSession(): Promise<User> {
-  await apiClient<unknown>("/auth/refresh", {
+  const data = await apiClient<{ access_token?: string }>("/auth/refresh", {
     method: "POST",
   });
+
+  if (data?.access_token) {
+    useAuthStore.getState().setAccessToken(data.access_token);
+  }
 
   return getCurrentUser();
 }

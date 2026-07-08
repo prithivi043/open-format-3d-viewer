@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   Plus,
   Copy,
@@ -28,6 +31,16 @@ const PLAN_LIMITS: Record<
   Enterprise: { api: "Unlimited", uploads: "Unlimited", fileSize: "5 GB" },
 };
 
+const apiKeySchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(3, "Key name must be at least 3 characters")
+    .max(50, "Key name must be under 50 characters"),
+});
+
+type ApiKeyFormData = z.infer<typeof apiKeySchema>;
+
 interface Props {
   /** Current plan from auth store (defaults to "Free" if not returned by backend yet) */
   plan?: PlanType;
@@ -40,9 +53,18 @@ export default function ApiKeysTab({ plan = "Free" }: Props) {
 
   // Dialog state
   const [showDialog, setShowDialog] = useState(false);
-  const [newKeyName, setNewKeyName] = useState("");
   const [revealed, setRevealed] = useState<ApiKeyCreated | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ApiKeyFormData>({
+    resolver: zodResolver(apiKeySchema),
+    defaultValues: { name: "" },
+  });
 
   function handleCopy(text: string, id: string) {
     copyToClipboard(text, () => setCopiedId(null));
@@ -50,7 +72,7 @@ export default function ApiKeysTab({ plan = "Free" }: Props) {
   }
 
   function handleOpenDialog() {
-    setNewKeyName("");
+    reset({ name: "" });
     setRevealed(null);
     setShowDialog(true);
   }
@@ -58,15 +80,12 @@ export default function ApiKeysTab({ plan = "Free" }: Props) {
   function handleCloseDialog() {
     setShowDialog(false);
     setRevealed(null);
-    setNewKeyName("");
+    reset({ name: "" });
   }
 
-  async function handleGenerate() {
-    if (!newKeyName.trim()) return;
-    const created = await createMutation.mutateAsync(newKeyName.trim());
+  async function handleGenerate(data: ApiKeyFormData) {
+    const created = await createMutation.mutateAsync(data.name);
     setRevealed(created);
-    console.log("created key response:", created);
-    setNewKeyName("");
   }
 
   async function handleDelete(id: string) {
@@ -276,18 +295,25 @@ export default function ApiKeysTab({ plan = "Free" }: Props) {
             </div>
 
             {!revealed ? (
-              <>
+              <form onSubmit={handleSubmit(handleGenerate)}>
                 <label className="block text-sm text-[#555] mb-1.5">
                   Key name
                 </label>
                 <input
-                  value={newKeyName}
-                  onChange={(e) => setNewKeyName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
+                  {...register("name")}
                   placeholder="e.g. Production API"
-                  className="w-full border border-[#ede8e0] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#7c3aed] transition-colors"
+                  className={`w-full border rounded-xl px-4 py-2.5 text-sm outline-none transition-colors ${
+                    errors.name
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-[#ede8e0] focus:border-[#7c3aed]"
+                  }`}
                   autoFocus
                 />
+                {errors.name && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.name.message}
+                  </p>
+                )}
                 {createMutation.isError && (
                   <p className="mt-2 text-xs text-red-500">
                     {(createMutation.error as Error).message}
@@ -295,14 +321,15 @@ export default function ApiKeysTab({ plan = "Free" }: Props) {
                 )}
                 <div className="flex gap-3 mt-5">
                   <button
+                    type="button"
                     onClick={handleCloseDialog}
                     className="flex-1 border border-[#ede8e0] text-sm text-[#555] py-2.5 rounded-xl hover:bg-[#faf7f3] transition-colors"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleGenerate}
-                    disabled={!newKeyName.trim() || createMutation.isPending}
+                    type="submit"
+                    disabled={createMutation.isPending}
                     className="flex-1 bg-[#7c3aed] text-white text-sm py-2.5 rounded-xl font-medium hover:bg-[#6d28d9] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {createMutation.isPending && (
@@ -311,7 +338,7 @@ export default function ApiKeysTab({ plan = "Free" }: Props) {
                     Generate Key
                   </button>
                 </div>
-              </>
+              </form>
             ) : (
               <>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">

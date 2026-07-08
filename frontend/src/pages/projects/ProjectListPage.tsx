@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   FolderOpen,
   Plus,
@@ -27,6 +27,18 @@ export default function ProjectListPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Close dropdown menu when clicking outside
+  useEffect(() => {
+    if (!openMenuId) return;
+    const handleDocumentClick = () => {
+      setOpenMenuId(null);
+    };
+    document.addEventListener("click", handleDocumentClick);
+    return () => {
+      document.removeEventListener("click", handleDocumentClick);
+    };
+  }, [openMenuId]);
 
   const filteredProjects = useMemo(() => {
     return projects.filter((project) =>
@@ -74,7 +86,6 @@ export default function ProjectListPage() {
   return (
     <div
       className="min-h-screen bg-[#f5f7fb] p-8"
-      onClick={() => setOpenMenuId(null)}
     >
       <div className="mx-auto max-w-7xl">
         {/* Header */}
@@ -127,8 +138,16 @@ export default function ProjectListPage() {
             {paginatedProjects.map((project) => (
               <div
                 key={project.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => navigate(`/projects/${project.id}`)}
-                className="cursor-pointer rounded-2xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(`/projects/${project.id}`);
+                  }
+                }}
+                className="cursor-pointer rounded-2xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {/* Thumbnail */}
                 <img
@@ -171,7 +190,6 @@ export default function ProjectListPage() {
 
                       {openMenuId === project.id && (
                         <div
-                          onClick={(e) => e.stopPropagation()}
                           className="absolute right-0 top-10 z-[9999] w-36 rounded-xl border border-slate-200 bg-white shadow-xl"
                         >
                           <button

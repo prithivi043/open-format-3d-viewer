@@ -1,13 +1,9 @@
-import { useMutation } from "@tanstack/react-query";
-import {
-  confirmUpload,
-  requestUploadUrl,
-  uploadFileToS3,
-} from "../api/modelApi";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUploadStore } from "../store/uploadStore";
-import { isMockModeActive } from "../../../lib/mockApi";
+import { uploadModel } from "../../../lib/modelUploadService";
 
 export function useUploadModel(projectId: string) {
+  const qc = useQueryClient();
   const { setProgress, setUploading, reset } = useUploadStore();
 
   return useMutation({
@@ -15,28 +11,22 @@ export function useUploadModel(projectId: string) {
       setUploading(true);
       setProgress(0);
 
-      const uploadData = await requestUploadUrl({
-        project_id: projectId,
-        filename: file.name,
-        content_type: file.type || "application/octet-stream",
-        size_bytes: file.size,
+      const result = await uploadModel({
+        projectId,
+        file,
+        onProgress: (pct) => {
+          setProgress(pct);
+        },
       });
 
-      await uploadFileToS3(uploadData.upload_url, file, setProgress);
+      return result.modelId;
+    },
 
-      setProgress(100);
-
-      try {
-        await confirmUpload(uploadData.model_id);
-      } catch (error) {
-        if (uploadData.upload_url.startsWith("local://") || isMockModeActive()) {
-          console.warn("Skipping confirmUpload failure in local/mock mode", error);
-        } else {
-          throw error;
-        }
-      }
-
-      return uploadData.model_id;
+    onSuccess: () => {
+      // Refresh the models table and project stats immediately after upload
+      qc.invalidateQueries({ queryKey: ["project-models", projectId] });
+      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
     },
 
     onError: (error) => {
@@ -49,3 +39,4 @@ export function useUploadModel(projectId: string) {
     },
   });
 }
+

@@ -1,4 +1,5 @@
 import { isMockModeActive, handleMockRequest } from "./mockApi";
+import { useAuthStore } from "../features/auth/store/authStore";
 
 type ApiOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -31,23 +32,44 @@ function buildUrl(endpoint: string) {
 }
 
 async function refreshToken() {
-  const response = await fetch(buildUrl("/auth/refresh"), {
-    method: "POST",
-    credentials: "include",
-  });
+  try {
+    const response = await fetch(buildUrl("/auth/refresh"), {
+      method: "POST",
+      credentials: "include",
+    });
 
-  return response.ok;
+    if (response.ok) {
+      const json = await response.json();
+      const payload =
+        json && typeof json === "object" && "data" in json ? json.data : json;
+      if (payload?.access_token) {
+        useAuthStore.getState().setAccessToken(payload.access_token);
+      }
+      return true;
+    }
+  } catch (err) {
+    console.error("Token refresh failed:", err);
+  }
+
+  useAuthStore.getState().logout();
+  return false;
+}
+
+interface ApiErrorShape {
+  error?: { code?: string; message?: string };
+  detail?: string | Array<{ msg?: string }>;
+  message?: string;
 }
 
 function extractErrorMessage(data: unknown, status: number): string {
-  const err = data as any;
+  const err = data as ApiErrorShape;
 
   if (err?.error?.code === "INTERNAL_ERROR") {
     return "The server is currently unavailable. Please try again later.";
   }
 
   if (Array.isArray(err?.detail)) {
-    return err.detail.map((d: any) => d?.msg ?? String(d)).join(", ");
+    return err.detail.map((d) => d?.msg ?? String(d)).join(", ");
   }
 
   if (typeof err?.detail === "string") {
@@ -70,12 +92,17 @@ export async function apiClient<T>(
     return handleMockRequest(endpoint, options) as Promise<T>;
   }
 
-  const requestUrl = buildUrl(endpoint);
+  const requestUrl = requestUrlHelper(endpoint);
 
   const requestHeaders: HeadersInit = {
     "Content-Type": "application/json",
     ...headers,
   };
+
+  const accessToken = useAuthStore.getState().accessToken;
+  if (accessToken) {
+    (requestHeaders as Record<string, string>)["Authorization"] = `Bearer ${accessToken}`;
+  }
 
   const fetchOptions: RequestInit = {
     method,
@@ -100,11 +127,13 @@ export async function apiClient<T>(
     }
   }
 
-  let data: any = null;
+  let data: unknown = null;
 
   try {
     data = await response.json();
-  } catch {}
+  } catch {
+    // Ignore JSON parsing errors for empty/non-JSON responses
+  }
 
   if (!response.ok) {
     const message = extractErrorMessage(data, response.status);
@@ -125,4 +154,8 @@ export async function apiClient<T>(
   }
 
   return data as T;
+}
+
+function requestUrlHelper(endpoint: string): string {
+  return buildUrl(endpoint);
 }

@@ -83,6 +83,7 @@ export default function ProjectModal({ isOpen, onClose, project }: Props) {
 
           <button
             onClick={onClose}
+            aria-label="Close"
             className="rounded-lg p-2 hover:bg-white/10"
           >
             <X size={18} />
