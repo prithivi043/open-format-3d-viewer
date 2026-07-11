@@ -34,28 +34,13 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            // xeokit huge bundle → separate chunk
-            if (id.includes("@xeokit")) {
+            // Isolate xeokit (≈1.6 MB) so the app shell is cached separately
+            // and only re-downloaded when xeokit itself changes.
+            // All other node_modules are left to Rollup's automatic splitting
+            // to avoid the circular vendor ↔ react-vendor chunk warning that
+            // arises when third-party packages have "react" in their path.
+            if (id.includes("node_modules/@xeokit")) {
               return "xeokit";
-            }
-
-            // React core
-            if (
-              id.includes("react") ||
-              id.includes("react-dom") ||
-              id.includes("react-router")
-            ) {
-              return "react-vendor";
-            }
-
-            // React Query
-            if (id.includes("@tanstack")) {
-              return "query";
-            }
-
-            // Remaining third-party libs
-            if (id.includes("node_modules")) {
-              return "vendor";
             }
           },
         },

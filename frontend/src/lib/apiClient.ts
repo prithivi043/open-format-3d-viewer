@@ -13,22 +13,14 @@ export type ApiResponse<T> = {
   meta?: unknown;
 };
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-if (!import.meta.env.DEV && !BASE_URL) {
-  throw new Error("Missing VITE_API_BASE_URL");
-}
-
-function buildUrl(endpoint: string) {
+// Always use relative paths so:
+// - In development: Vite's dev-server proxy (vite.config.ts) forwards /v1/* → Render
+// - In production (Vercel): vercel.json rewrites forward /v1/* → Render
+// This avoids cross-origin CORS preflight OPTIONS requests, which Render
+// rejects with 401 Unauthorized before the actual request can even be made.
+function buildUrl(endpoint: string): string {
   const normalized = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-
-  if (import.meta.env.DEV) {
-    return `/v1${normalized}`;
-  }
-
-  const cleanBase = BASE_URL.endsWith("/v1") ? BASE_URL.slice(0, -3) : BASE_URL;
-
-  return `${cleanBase}/v1${normalized}`;
+  return `/v1${normalized}`;
 }
 
 async function refreshToken() {
