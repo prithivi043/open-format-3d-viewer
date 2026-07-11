@@ -1,5 +1,11 @@
 import { apiClient } from "../../../lib/apiClient";
 import { useAuthStore } from "../store/authStore";
+import { API_BASE_URL } from "../../../lib/config";
+
+const getAbsoluteUrl = (path: string): string => {
+  const base = API_BASE_URL.endsWith("/v1") ? API_BASE_URL.slice(0, -3) : API_BASE_URL;
+  return `${base}/v1${path}`;
+};
 
 export type User = {
   id: string;
@@ -19,13 +25,12 @@ export type SignupPayload = {
 };
 
 export function getGoogleAuthUrl(): string {
-  const base = import.meta.env.VITE_API_BASE_URL as string | undefined;
-
-  if (base) {
-    return `${base.replace(/\/$/, "")}/auth/google`;
-  }
-
-  return "https://open-format-3d-viewer.onrender.com/v1/auth/google";
+  // Must use the absolute Render URL for OAuth initiation.
+  // Google Console is configured with the callback URL on the onrender.com domain.
+  // Initiating the flow on the same onrender.com domain ensures the Starlette
+  // state/session cookies match the callback domain, preventing "oauth_failed" state mismatches.
+  const base = API_BASE_URL.endsWith("/v1") ? API_BASE_URL.slice(0, -3) : API_BASE_URL;
+  return `${base}/v1/auth/google`;
 }
 
 export async function login(payload: LoginPayload): Promise<User> {
@@ -53,9 +58,21 @@ export async function getCurrentUser(): Promise<User> {
 }
 
 export async function refreshSession(): Promise<User> {
-  const data = await apiClient<{ access_token?: string }>("/auth/refresh", {
+  // In production, call the absolute Render URL directly to include the httpOnly cookie
+  // set on the onrender.com domain. Since it has no custom headers or body, it behaves
+  // as a CORS "simple request" and bypasses the OPTIONS preflight that the backend rejects.
+  const url = import.meta.env.DEV ? "/v1/auth/refresh" : getAbsoluteUrl("/auth/refresh");
+  const response = await fetch(url, {
     method: "POST",
+    credentials: "include",
   });
+
+  if (!response.ok) {
+    throw new Error("Session refresh failed");
+  }
+
+  const json = await response.json();
+  const data = json && typeof json === "object" && "data" in json ? json.data : json;
 
   if (data?.access_token) {
     useAuthStore.getState().setAccessToken(data.access_token);
@@ -65,7 +82,14 @@ export async function refreshSession(): Promise<User> {
 }
 
 export async function logoutApi(): Promise<void> {
-  await apiClient<unknown>("/auth/logout", {
-    method: "POST",
-  });
+  const url = import.meta.env.DEV ? "/v1/auth/logout" : getAbsoluteUrl("/auth/logout");
+  try {
+    await fetch(url, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch (err) {
+    console.error("Logout API request failed:", err);
+  }
+  useAuthStore.getState().logout();
 }

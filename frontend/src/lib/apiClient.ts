@@ -18,14 +18,26 @@ export type ApiResponse<T> = {
 // - In production (Vercel): vercel.json rewrites forward /v1/* → Render
 // This avoids cross-origin CORS preflight OPTIONS requests, which Render
 // rejects with 401 Unauthorized before the actual request can even be made.
+import { API_BASE_URL } from "./config";
+
 function buildUrl(endpoint: string): string {
   const normalized = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   return `/v1${normalized}`;
 }
 
+function buildAbsoluteUrl(endpoint: string): string {
+  const base = API_BASE_URL.endsWith("/v1") ? API_BASE_URL.slice(0, -3) : API_BASE_URL;
+  const normalized = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  return `${base}/v1${normalized}`;
+}
+
 async function refreshToken() {
   try {
-    const response = await fetch(buildUrl("/auth/refresh"), {
+    // In production, call the absolute Render URL directly to include the httpOnly cookie
+    // set on the onrender.com domain. Since it has no custom headers or body, it behaves
+    // as a CORS "simple request" and bypasses the OPTIONS preflight that the backend rejects.
+    const url = import.meta.env.DEV ? buildUrl("/auth/refresh") : buildAbsoluteUrl("/auth/refresh");
+    const response = await fetch(url, {
       method: "POST",
       credentials: "include",
     });
