@@ -33,9 +33,6 @@ function buildAbsoluteUrl(endpoint: string): string {
 
 async function refreshToken() {
   try {
-    // In production, call the absolute Render URL directly to include the httpOnly cookie
-    // set on the onrender.com domain. Since it has no custom headers or body, it behaves
-    // as a CORS "simple request" and bypasses the OPTIONS preflight that the backend rejects.
     const url = import.meta.env.DEV ? buildUrl("/auth/refresh") : buildAbsoluteUrl("/auth/refresh");
     const response = await fetch(url, {
       method: "POST",
