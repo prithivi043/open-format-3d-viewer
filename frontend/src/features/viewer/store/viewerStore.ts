@@ -23,6 +23,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
     worldPos: null,
     entityId: null,
     mockScreenPos: null,
+    worldNormal: null,
   },
 
 

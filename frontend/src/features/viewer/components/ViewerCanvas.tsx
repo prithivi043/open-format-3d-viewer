@@ -366,6 +366,7 @@ export function ViewerCanvas() {
         annotationModal.worldPos,
         annotationModal.entityId,
         annotationInput.trim(),
+        annotationModal.worldNormal || undefined,
       );
     }
 

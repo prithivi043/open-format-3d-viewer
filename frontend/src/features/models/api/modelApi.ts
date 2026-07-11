@@ -88,7 +88,7 @@ export function uploadFileToS3(
     xhr.open("PUT", uploadUrl);
     xhr.setRequestHeader(
       "Content-Type",
-      file.type || "application/octet-stream",
+      "application/octet-stream",
     );
 
     xhr.upload.onprogress = (event) => {

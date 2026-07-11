@@ -45,7 +45,14 @@ export interface Annotation {
   model_id: string;
   title: string;
   body: string | null;
-  position: { x: number; y: number; z: number };
+  position: {
+    x: number;
+    y: number;
+    z: number;
+    normal_x: number;
+    normal_y: number;
+    normal_z: number;
+  };
   status: "open" | "closed";
   created_at: string;
 }
@@ -53,5 +60,12 @@ export interface Annotation {
 export interface CreateAnnotationPayload {
   title: string;
   body: string | null;
-  position: { x: number; y: number; z: number };
+  position: {
+    x: number;
+    y: number;
+    z: number;
+    normal_x: number;
+    normal_y: number;
+    normal_z: number;
+  };
 }

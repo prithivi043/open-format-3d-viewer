@@ -49,10 +49,13 @@ const ViewerCanvas = lazy(() =>
 function ViewerMembersSync({ modelId }: { modelId: string }) {
   const setProjectMembers = useViewerStore((s) => s.setProjectMembers);
 
+  const isBackendModel = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(modelId);
+
   // 1) Fetch model metadata to get project_id
   const { data: model } = useQuery({
     queryKey: ["model", modelId],
     queryFn: () => getModel(modelId),
+    enabled: isBackendModel,
     staleTime: 1000 * 60 * 5,
   });
 
@@ -61,7 +64,7 @@ function ViewerMembersSync({ modelId }: { modelId: string }) {
   const { data: members } = useQuery({
     queryKey: ["project-members", projectId],
     queryFn: () => getProjectMembers(projectId!),
-    enabled: Boolean(projectId),
+    enabled: isBackendModel && Boolean(projectId),
     staleTime: 1000 * 30,
   });
 

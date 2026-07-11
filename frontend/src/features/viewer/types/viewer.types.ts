@@ -70,6 +70,7 @@ export interface ViewerState {
     worldPos: [number, number, number] | null;
     entityId: string | null;
     mockScreenPos: [number, number] | null;
+    worldNormal?: [number, number, number] | null;
   };
 
 
@@ -93,5 +94,6 @@ export interface ViewerState {
     worldPos: [number, number, number] | null;
     entityId: string | null;
     mockScreenPos: [number, number] | null;
+    worldNormal?: [number, number, number] | null;
   }) => void;
 }

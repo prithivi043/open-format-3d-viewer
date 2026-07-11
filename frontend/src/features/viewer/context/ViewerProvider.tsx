@@ -18,6 +18,7 @@ import {
   useRef,
   useState,
   useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +39,14 @@ import type {
 } from "../types/viewer.types";
 import type { Annotation, CreateAnnotationPayload } from "../../models/types/model.types";
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Returns true when `id` is a valid UUID (v4-style), i.e. a backend model ID. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isBackendModelId(id: string): boolean {
+  return UUID_RE.test(id);
+}
+
 // ─── Context ─────────────────────────────────────────────────────────────────
 
 interface ViewerContextValue {
@@ -52,6 +61,7 @@ interface ViewerContextValue {
     worldPos: [number, number, number],
     entityId: string,
     message: string,
+    worldNormal?: [number, number, number],
   ) => void;
   peerCursors: Record<
     string,
@@ -229,35 +239,20 @@ function extractProperties(meta: MetaObjectLike): PropertyRow[] {
   return rows;
 }
 
-function parseNumberArray(val: unknown, fallback: number[]): number[] {
-  if (Array.isArray(val)) return val;
-  if (typeof val === "string") {
-    try {
-      const p = JSON.parse(val);
-      if (Array.isArray(p)) return p;
-    } catch(e) {}
-    const cleaned = val.replace(/[{}[\]]/g, '');
-    if (cleaned) {
-      const parts = cleaned.split(',').map(s => parseFloat(s.trim()));
-      if (parts.length >= 3 && parts.every(n => !isNaN(n))) return parts;
-    }
-  } else if (val !== null && typeof val === "object") {
-    // Handle Float64Array inadvertently serialized as {"0": x, "1": y, "2": z}
-    const obj = val as Record<string | number, unknown>;
-    const arr = [obj[0] ?? obj["0"], obj[1] ?? obj["1"], obj[2] ?? obj["2"]];
-    if (arr.every(n => typeof n === "number" && !isNaN(n))) {
-      return arr as number[];
-    }
-  }
-  return fallback;
-}
+
 
 const mapAnnotationToIssue = (a: Annotation): AnnotationIssue => {
+  const x = a.position?.x ?? 0;
+  const y = a.position?.y ?? 0;
+  const z = a.position?.z ?? 0;
+  const nx = a.position?.normal_x ?? 0;
+  const ny = a.position?.normal_y ?? 0;
+  const nz = a.position?.normal_z ?? 1;
   return {
     id: a.id,
     modelId: a.model_id,
-    positionXyz: [a.position.x, a.position.y, a.position.z],
-    normalXyz: [0, 0, 1],
+    positionXyz: [x, y, z],
+    normalXyz: [nx, ny, nz],
     message: a.body ? `${a.title}: ${a.body}` : a.title,
     status: a.status,
     createdAt: a.created_at,
@@ -338,6 +333,7 @@ export function ViewerProvider({ modelId, children }: Props) {
     setModelTree,
     setSelectedObjectId,
     selectedObjectId,
+    annotations: zustandAnnotations,
   } = useViewerStore();
 
   const [peerCursors, setPeerCursors] = useState<
@@ -388,16 +384,29 @@ export function ViewerProvider({ modelId, children }: Props) {
   }, [updateCursorProjections]);
 
   // 1. Fetch Annotations via TanStack Query
+  //    Only call the backend for UUID model IDs; local models ("local-xxx")
+  //    would cause a VALIDATION_ERROR since the backend expects a UUID path param.
+  const isBackendModel = isBackendModelId(modelId);
   const { data: serverAnnotations } = useQuery({
     queryKey: ["model-annotations", modelId],
     queryFn: () => getAnnotations(modelId),
-    enabled: Boolean(modelId),
+    enabled: Boolean(modelId) && isBackendModel,
   });
 
-  // 2. Annotation mutations
+  const activeAnnotations = useMemo(() => {
+    return isBackendModel
+      ? (serverAnnotations?.map(mapAnnotationToIssue) || [])
+      : zustandAnnotations;
+  }, [isBackendModel, serverAnnotations, zustandAnnotations]);
+
+  // 2. Annotation mutations (only meaningful for backend models)
   const createMutation = useMutation({
-    mutationFn: (payload: CreateAnnotationPayload) =>
-      createAnnotation(modelId, payload),
+    mutationFn: (payload: CreateAnnotationPayload) => {
+      if (!isBackendModel) {
+        return Promise.reject(new Error("Annotations are not persisted for local models"));
+      }
+      return createAnnotation(modelId, payload);
+    },
     onSuccess: (newAnno) => {
       queryClient.invalidateQueries({
         queryKey: ["model-annotations", modelId],
@@ -407,7 +416,12 @@ export function ViewerProvider({ modelId, children }: Props) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteAnnotation(id),
+    mutationFn: (id: string) => {
+      if (!isBackendModel) {
+        return Promise.reject(new Error("Annotations are not persisted for local models"));
+      }
+      return deleteAnnotation(id);
+    },
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({
         queryKey: ["model-annotations", modelId],
@@ -519,10 +533,10 @@ export function ViewerProvider({ modelId, children }: Props) {
     sendCursorMoveRef.current = sendCursorMoveThrottled;
   }, [sendCursorMoveThrottled]);
 
-  // Synchronize server annotations to xeokit AnnotationsPlugin when fetched
+  // Synchronize annotations to xeokit AnnotationsPlugin when fetched or updated
   useEffect(() => {
     const plugin = annotationsPluginRef.current as any;
-    if (!plugin || !isRealModel || !serverAnnotations) return;
+    if (!plugin || !isRealModel || !activeAnnotations) return;
 
     // Clear existing
     for (const key in plugin.annotations) {
@@ -530,15 +544,10 @@ export function ViewerProvider({ modelId, children }: Props) {
     }
 
     // Load new pins
-    serverAnnotations.forEach((anno) => {
-      const parsedPos = parseNumberArray(
-        [anno.position.x, anno.position.y, anno.position.z],
-        [0, 0, 0],
-      );
-
+    activeAnnotations.forEach((anno) => {
       plugin.createAnnotation({
         id: anno.id,
-        worldPos: parsedPos,
+        worldPos: anno.positionXyz,
         occludable: false, // Prevent depth-buffer conflicts from falsely hiding markers
         markerShown: true,
         labelShown: true,
@@ -546,19 +555,21 @@ export function ViewerProvider({ modelId, children }: Props) {
           id: anno.id,
           glyph: "A",
           title: "Observation",
-          description: anno.body ?? "",
+          description: anno.message ?? "",
         },
       });
     });
 
-    useViewerStore.getState().setAnnotations(serverAnnotations.map(mapAnnotationToIssue));
+    if (isBackendModel && serverAnnotations) {
+      useViewerStore.getState().setAnnotations(serverAnnotations.map(mapAnnotationToIssue));
+    }
 
     // Wait for xeokit to flush DOM updates then calculate initial collision layout
     setTimeout(() => {
       updateLabelLayout();
     }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverAnnotations, isRealModel]);
+  }, [activeAnnotations, isRealModel, isBackendModel, serverAnnotations]);
 
   // Subscribe to activeTool state changes and adjust viewer controls
   useEffect(() => {
@@ -738,8 +749,15 @@ export function ViewerProvider({ modelId, children }: Props) {
               const annoId = btn.getAttribute("data-anno-id");
               if (annoId) {
                 try {
-                  // Use ref to avoid capturing stale mutation or causing dep loop
-                  await deleteMutationRef.current.mutateAsync(annoId);
+                  if (!isBackendModel) {
+                    // Local model deletion
+                    const store = useViewerStore.getState();
+                    const filtered = store.annotations.filter((a) => a.id !== annoId);
+                    store.setAnnotations(filtered);
+                  } else {
+                    // Use ref to avoid capturing stale mutation or causing dep loop
+                    await deleteMutationRef.current.mutateAsync(annoId);
+                  }
                   if (annotationsPlugin.annotations[annoId]) {
                     annotationsPlugin.destroyAnnotation(annoId);
                   }
@@ -956,11 +974,13 @@ export function ViewerProvider({ modelId, children }: Props) {
                 }
               } else if (currentTool === "annotation") {
                 if (hit.worldPos && entityId) {
+                  const normal = hit.worldNormal || [0, 0, 1];
                   useViewerStore.getState().setAnnotationModal({
                     isOpen: true,
                     worldPos: Array.from(hit.worldPos) as [number, number, number],
                     entityId: entityId,
                     mockScreenPos: null,
+                    worldNormal: Array.from(normal) as [number, number, number],
                   });
                 }
               } else if (currentTool === "section") {
@@ -1133,16 +1153,42 @@ export function ViewerProvider({ modelId, children }: Props) {
     worldPos: [number, number, number],
     _entityId: string,
     message: string,
+    worldNormal?: [number, number, number],
   ) => {
     const annotationsPlugin = annotationsPluginRef.current as any;
     const viewer = viewerRef.current;
     if (!annotationsPlugin || !viewer) return;
 
+    const normal = worldNormal || [0, 0, 1];
+
+    if (!isBackendModel) {
+      // Local model: save directly to Zustand store
+      const localId = "local-anno-" + Date.now();
+      const newAnno: AnnotationIssue = {
+        id: localId,
+        modelId: modelId,
+        positionXyz: worldPos,
+        normalXyz: normal,
+        message: `Observation: ${message}`,
+        status: "open",
+        createdAt: new Date().toISOString(),
+      };
+      useViewerStore.getState().addAnnotation(newAnno);
+      return;
+    }
+
     try {
       await createMutation.mutateAsync({
         title: "Annotation",
         body: message,
-        position: { x: worldPos[0] ?? 0, y: worldPos[1] ?? 0, z: worldPos[2] ?? 0 },
+        position: {
+          x: worldPos[0] ?? 0,
+          y: worldPos[1] ?? 0,
+          z: worldPos[2] ?? 0,
+          normal_x: normal[0] ?? 0,
+          normal_y: normal[1] ?? 0,
+          normal_z: normal[2] ?? 1,
+        },
       });
     } catch (err) {
       console.error("Failed to save annotation:", err);

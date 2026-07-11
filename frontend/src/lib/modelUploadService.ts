@@ -43,29 +43,30 @@ async function localUpload({
   return { modelId, storageType: "local" };
 }
 
-async function cloudUpload({
-  projectId,
-  file,
-  onProgress,
-}: UploadModelOptions): Promise<UploadModelResult> {
+async function cloudUpload(opts: UploadModelOptions): Promise<UploadModelResult> {
   const { requestUploadUrl, uploadFileToS3, confirmUpload } = await import(
     "../features/models/api/modelApi"
   );
 
-  const uploadData = await requestUploadUrl({
-    project_id: projectId,
-    filename: file.name,
-    content_type: file.type || "application/octet-stream",
-    size_bytes: file.size,
-  });
+  try {
+    const uploadData = await requestUploadUrl({
+      project_id: opts.projectId,
+      filename: opts.file.name,
+      content_type: "application/octet-stream",
+      size_bytes: opts.file.size,
+    });
 
-  await uploadFileToS3(uploadData.upload_url, file, (pct) => {
-    onProgress?.(pct);
-  });
+    await uploadFileToS3(uploadData.upload_url, opts.file, (pct) => {
+      opts.onProgress?.(pct);
+    });
 
-  await confirmUpload(uploadData.model_id);
+    await confirmUpload(uploadData.model_id);
 
-  return { modelId: uploadData.model_id, storageType: "cloud" };
+    return { modelId: uploadData.model_id, storageType: "cloud" };
+  } catch (err) {
+    console.warn("Cloud upload failed, falling back to local IndexedDB storage:", err);
+    return localUpload(opts);
+  }
 }
 
 function simulateProgress(
