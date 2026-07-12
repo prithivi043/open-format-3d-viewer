@@ -11,6 +11,10 @@ export type User = {
   id: string;
   email: string;
   full_name: string;
+  /** Storage quota in bytes as returned by /auth/me (optional — backend may omit it) */
+  storage_quota_bytes?: number;
+  /** Plan type returned by /auth/me (e.g. "Free", "Pro", "Enterprise") */
+  plan?: string;
 };
 
 export type LoginPayload = {

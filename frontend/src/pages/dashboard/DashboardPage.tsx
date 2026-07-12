@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, type DragEvent } from "react";
 
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -14,10 +14,16 @@ import {
   Package,
   Cloud,
   ChevronRight,
+  UploadCloud,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 
 import { useProjects } from "../../features/projects/hooks/useProjects";
 import ProjectModal from "../../features/projects/components/ProjectModal";
+import { useAuthStore } from "../../features/auth/store/authStore";
+import { useUploadModel } from "../../features/models/hooks/useUploadModel";
+import { useUploadStore } from "../../features/models/store/uploadStore";
 
 interface DashboardProject {
   id: string;
@@ -313,6 +319,14 @@ export default function DashboardPage() {
 
   const [openModal, setOpenModal] = useState(false);
 
+  // ── Quick Upload state ─────────────────────────────────
+  const [quickFile, setQuickFile] = useState<File | null>(null);
+  const [quickProjectId, setQuickProjectId] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const [quickError, setQuickError] = useState("");
+  const [quickDone, setQuickDone] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { data: projects = [], isLoading: projectsLoading } = useProjects();
 
   const openProjects = () => navigate("/projects");
@@ -335,9 +349,73 @@ export default function DashboardPage() {
     [projects],
   );
 
-  const STORAGE_LIMIT_BYTES = 200 * 1_073_741_824;
+  const storageQuotaBytes = useAuthStore((s) => s.storageQuotaBytes);
+  const storageQuotaGB = bytesToGB(storageQuotaBytes);
   const storageUsedGB = bytesToGB(totalStorageBytes);
-  const storagePctVal = storagePct(totalStorageBytes, STORAGE_LIMIT_BYTES);
+  const storagePctVal = storagePct(totalStorageBytes, storageQuotaBytes);
+
+  // ── Quick Upload helpers ───────────────────────────────
+  // Default to the most recently updated project
+  const defaultProjectId = useMemo(
+    () =>
+      [...projects].sort(
+        (a, b) =>
+          new Date(b.updatedAt ?? b.createdAt).getTime() -
+          new Date(a.updatedAt ?? a.createdAt).getTime(),
+      )[0]?.id ?? "",
+    [projects],
+  );
+
+  const targetProjectId = quickProjectId || defaultProjectId;
+  const uploadMutation = useUploadModel(targetProjectId);
+  const { progress, isUploading } = useUploadStore();
+
+  const ALLOWED_EXTENSIONS = ["ifc", "glb", "gltf", "fbx", "obj", "step", "stl"];
+
+  const validateQuickFile = (f: File): boolean => {
+    const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      setQuickError("Unsupported format. Use IFC, GLB, GLTF, FBX, OBJ, STEP or STL.");
+      return false;
+    }
+    if (f.size > 500 * 1024 * 1024) {
+      setQuickError("File exceeds 500 MB limit.");
+      return false;
+    }
+    setQuickError("");
+    return true;
+  };
+
+  const handleQuickFile = (f: File) => {
+    if (!validateQuickFile(f)) return;
+    setQuickFile(f);
+    setQuickDone(false);
+  };
+
+  const handleQuickDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragActive(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleQuickFile(f);
+  };
+
+  const handleQuickUpload = async () => {
+    if (!quickFile || !targetProjectId) return;
+    setQuickError("");
+    try {
+      await uploadMutation.mutateAsync(quickFile);
+      setQuickDone(true);
+      setQuickFile(null);
+    } catch (err) {
+      setQuickError(err instanceof Error ? err.message : "Upload failed.");
+    }
+  };
+
+  const resetQuickUpload = () => {
+    setQuickFile(null);
+    setQuickError("");
+    setQuickDone(false);
+  };
 
   // ── Dashboard project cards ────────────────────────────
   const dashboardProjects: DashboardProject[] = useMemo(
@@ -485,7 +563,7 @@ export default function DashboardPage() {
                   label="Storage"
                   value={storageUsedGB}
                   unit="GB"
-                  delta={`of 200 GB used (${storagePctVal}%)`}
+                  delta={`of ${storageQuotaGB} GB used (${storagePctVal}%)`}
                   deltaPositive={false}
                   icon={<Database size={14} />}
                   accentColor="#BA7517"
@@ -644,7 +722,7 @@ export default function DashboardPage() {
                 </div>
 
                 <p className="text-[13px] text-gray-600 text-center">
-                  {storageUsedGB} GB of 200 GB used
+                  {storageUsedGB} GB of {storageQuotaGB} GB used
                 </p>
               </div>
 
@@ -653,12 +731,124 @@ export default function DashboardPage() {
                   Quick Upload
                 </p>
 
-                <div className="rounded-2xl border border-dashed border-gray-300 p-6 text-center hover:border-[#534AB7] hover:bg-[#EEEDFE] transition">
-                  <Cloud size={24} className="mx-auto mb-3 text-gray-400" />
-                  <p className="text-[13px] text-gray-600">
-                    Drop model here or click to browse
-                  </p>
-                </div>
+                {projects.length === 0 && !projectsLoading ? (
+                  <div className="rounded-2xl border border-dashed border-gray-200 p-5 text-center">
+                    <Cloud size={22} className="mx-auto mb-2 text-gray-300" />
+                    <p className="text-[12px] text-gray-400 mb-3">Create a project first to upload a model.</p>
+                    <button
+                      onClick={() => setOpenModal(true)}
+                      className="text-[12px] font-medium text-[#534AB7] hover:underline"
+                    >
+                      + New Project
+                    </button>
+                  </div>
+                ) : quickDone ? (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center">
+                    <CheckCircle size={22} className="mx-auto mb-2 text-emerald-500" />
+                    <p className="text-[12px] text-emerald-700 font-medium mb-3">Upload complete!</p>
+                    <button
+                      onClick={resetQuickUpload}
+                      className="text-[12px] text-[#534AB7] hover:underline font-medium"
+                    >
+                      Upload another
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Project selector — only shown when >1 project */}
+                    {projects.length > 1 && (
+                      <select
+                        value={targetProjectId}
+                        onChange={(e) => setQuickProjectId(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-[12px] text-gray-700 focus:border-[#534AB7] focus:outline-none"
+                      >
+                        {projects.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    )}
+
+                    {/* Drop zone */}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                      onDragLeave={() => setDragActive(false)}
+                      onDrop={handleQuickDrop}
+                      onClick={() => !quickFile && fileInputRef.current?.click()}
+                      className={`rounded-2xl border border-dashed p-5 text-center transition cursor-pointer ${
+                        dragActive
+                          ? "border-[#534AB7] bg-[#f4f2ff]"
+                          : quickFile
+                          ? "border-[#534AB7] bg-[#f4f2ff] cursor-default"
+                          : "border-gray-300 hover:border-[#534AB7] hover:bg-[#EEEDFE]"
+                      }`}
+                    >
+                      {quickFile ? (
+                        <div>
+                          <UploadCloud size={20} className="mx-auto mb-1.5 text-[#534AB7]" />
+                          <p className="text-[11px] font-medium text-gray-800 truncate max-w-full px-2">
+                            {quickFile.name}
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            {(quickFile.size / 1024 / 1024).toFixed(1)} MB
+                          </p>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); resetQuickUpload(); }}
+                            className="mt-2 inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-red-500"
+                          >
+                            <XCircle size={11} /> Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <Cloud size={22} className="mx-auto mb-2 text-gray-400" />
+                          <p className="text-[12px] text-gray-500">Drop model here</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">or click to browse</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept=".ifc,.glb,.gltf,.fbx,.obj,.step,.stl"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleQuickFile(f);
+                        e.target.value = "";
+                      }}
+                    />
+
+                    {/* Upload progress bar */}
+                    {isUploading && (
+                      <div>
+                        <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                          <span>Uploading…</span>
+                          <span>{progress}%</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#534AB7] transition-all duration-300"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {quickError && (
+                      <p className="text-[11px] text-red-500">{quickError}</p>
+                    )}
+
+                    {/* Upload button */}
+                    <button
+                      disabled={!quickFile || isUploading || !targetProjectId}
+                      onClick={handleQuickUpload}
+                      className="w-full rounded-xl bg-[#534AB7] py-2 text-[12px] font-medium text-white disabled:opacity-40 transition hover:bg-[#4338ca]"
+                    >
+                      {isUploading ? `Uploading… ${progress}%` : "Upload Model"}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-gray-200 pt-6">
