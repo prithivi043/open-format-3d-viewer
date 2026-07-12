@@ -69,3 +69,22 @@ export interface CreateAnnotationPayload {
     normal_z: number;
   };
 }
+
+export interface ModelElement {
+  id: string;
+  model_id: string;
+  guid: string;
+  element_type: string | null;
+  name: string | null;
+  properties: Record<string, any> | null;
+  created_at: string;
+}
+
+export interface AnnotationComment {
+  id: string;
+  annotation_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}

@@ -1,7 +1,26 @@
 import { useState } from "react";
-import { Plus, CheckCircle2, Circle, Clock, Info, Tag, Hash, Layers } from "lucide-react";
+import {
+  Plus,
+  CheckCircle2,
+  Circle,
+  Clock,
+  Info,
+  Tag,
+  Hash,
+  Layers,
+  MessageSquare,
+  Send,
+  CheckCircle,
+  HelpCircle,
+} from "lucide-react";
 import { useViewerStore } from "../store/viewerStore";
+import { useViewerContext } from "../context/ViewerProvider";
 import type { PropertyRow } from "../types/viewer.types";
+import {
+  useAnnotationComments,
+  useCreateAnnotationComment,
+  useUpdateAnnotation,
+} from "../../models/hooks/useAnnotationComments";
 
 // ─── Properties Panel ─────────────────────────────────────────────────────────
 
@@ -176,6 +195,100 @@ function PropertiesPanel() {
   );
 }
 
+function AnnotationCommentsView({ annotationId, status }: { annotationId: string; status: any }) {
+  const { modelId } = useViewerContext();
+  const { data: comments, isLoading } = useAnnotationComments(annotationId);
+  const addCommentMutation = useCreateAnnotationComment(annotationId);
+  const updateAnnotationMutation = useUpdateAnnotation(modelId);
+  const projectMembers = useViewerStore((s) => s.projectMembers);
+  const [newComment, setNewComment] = useState("");
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+    try {
+      await addCommentMutation.mutateAsync(newComment.trim());
+      setNewComment("");
+    } catch (err) {
+      console.error("Failed to add comment:", err);
+    }
+  };
+
+  const toggleStatus = () => {
+    const nextStatus = status === "resolved" || status === "closed" ? "open" : "resolved";
+    updateAnnotationMutation.mutate({ id: annotationId, status: nextStatus });
+  };
+
+  const getAuthorName = (authorId: string) => {
+    const member = projectMembers.find((m) => m.id === authorId);
+    return member?.fullName || `User ${authorId.slice(0, 4)}`;
+  };
+
+  const isClosed = status === "resolved" || status === "closed";
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/5 space-y-3 cursor-default" onClick={(e) => e.stopPropagation()}>
+      {/* Status Action */}
+      <div className="flex justify-between items-center bg-white/5 p-1.5 rounded">
+        <span className="text-[10px] text-gray-400">
+          Status: <span className="font-semibold text-gray-200 capitalize">{status}</span>
+        </span>
+        <button
+          onClick={toggleStatus}
+          disabled={updateAnnotationMutation.isPending}
+          className={`px-2 py-0.5 rounded text-[9px] font-semibold transition-all flex items-center gap-1 ${
+            isClosed
+              ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+              : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+          }`}
+        >
+          {isClosed ? <HelpCircle size={10} /> : <CheckCircle size={10} />}
+          {isClosed ? "Reopen Issue" : "Resolve Issue"}
+        </button>
+      </div>
+
+      {/* Comments List */}
+      <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scroll pr-1">
+        <p className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-1">
+          <MessageSquare size={10} /> Discussion
+        </p>
+        {isLoading && <p className="text-[9px] text-gray-500">Loading comments...</p>}
+        {!isLoading && (!comments || comments.length === 0) && (
+          <p className="text-[9px] text-gray-600 italic">No comments yet</p>
+        )}
+        {comments?.map((c: any) => (
+          <div key={c.id} className="bg-white/[0.02] border border-white/5 rounded p-1.5 space-y-0.5">
+            <div className="flex justify-between text-[9px] text-gray-500">
+              <span className="font-semibold text-gray-300">{getAuthorName(c.author_id)}</span>
+              <span>{new Date(c.created_at).toLocaleDateString()}</span>
+            </div>
+            <p className="text-[10px] text-gray-300 leading-normal">{c.body}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Comment Form */}
+      <form onSubmit={handleSend} className="flex gap-1.5 mt-2">
+        <input
+          type="text"
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          placeholder="Write a comment..."
+          disabled={addCommentMutation.isPending}
+          className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] text-white outline-none focus:border-violet-500 transition-colors"
+        />
+        <button
+          type="submit"
+          disabled={addCommentMutation.isPending || !newComment.trim()}
+          className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded p-1 flex items-center justify-center transition-all"
+        >
+          <Send size={10} />
+        </button>
+      </form>
+    </div>
+  );
+}
+
 // ─── Annotations List ─────────────────────────────────────────────────────────
 
 function AnnotationsList() {
@@ -221,7 +334,7 @@ function AnnotationsList() {
             style={{ border: "1px solid", borderColor: selectedAnnotationId === ann.id ? "rgba(139,92,246,0.3)" : "rgba(255,255,255,0.06)" }}
           >
             <div className="flex items-start gap-2">
-              {ann.status === "closed"
+              {ann.status === "closed" || ann.status === "resolved"
                 ? <CheckCircle2 size={13} className="text-emerald-400 flex-shrink-0 mt-0.5" />
                 : <Circle size={13} className="text-amber-400 flex-shrink-0 mt-0.5" />
               }
@@ -239,6 +352,9 @@ function AnnotationsList() {
                 </div>
               </div>
             </div>
+            {selectedAnnotationId === ann.id && (
+              <AnnotationCommentsView annotationId={ann.id} status={ann.status} />
+            )}
           </div>
         ))}
       </div>

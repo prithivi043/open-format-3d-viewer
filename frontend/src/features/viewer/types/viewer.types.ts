@@ -43,7 +43,7 @@ export interface AnnotationIssue {
   positionXyz: [number, number, number];
   normalXyz: [number, number, number];
   message: string;
-  status: "open" | "closed";
+  status: "open" | "closed" | "in_review" | "resolved";
   createdAt: string;
 }
 

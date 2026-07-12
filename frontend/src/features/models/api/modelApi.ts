@@ -1,8 +1,10 @@
 import { apiClient } from "../../../lib/apiClient";
+import { useAuthStore } from "../../auth/store/authStore";
 import type {
   UploadModelPayload,
   UploadUrlResponse,
   Model,
+  ModelElement,
 } from "../types/model.types";
 import type { IFCNode } from "../../viewer/types/viewer.types";
 import { isMockModeActive } from "../../../lib/mockApi";
@@ -46,6 +48,36 @@ export async function deleteModel(modelId: string): Promise<void> {
   return apiClient<void>(`/models/${modelId}`, {
     method: "DELETE",
   });
+}
+
+export async function getElementByGuid(
+  modelId: string,
+  guid: string,
+): Promise<ModelElement> {
+  return apiClient<ModelElement>(`/models/${modelId}/elements/${guid}`);
+}
+
+export async function exportModelBcf(modelId: string): Promise<Blob> {
+  const token = useAuthStore.getState().accessToken;
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "/v1";
+  
+  // Normalize apiBase url
+  let baseUrl = apiBase;
+  if (apiBase.endsWith("/v1")) {
+    baseUrl = apiBase.slice(0, -3);
+  }
+  const url = `${baseUrl}/v1/models/${modelId}/export/bcf`;
+
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(url, { headers, credentials: "include" });
+  if (!res.ok) {
+    throw new Error("Failed to export BCF package");
+  }
+  return res.blob();
 }
 
 

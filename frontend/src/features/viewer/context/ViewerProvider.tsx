@@ -338,6 +338,55 @@ export function ViewerProvider({ modelId, children }: Props) {
     annotations: zustandAnnotations,
   } = useViewerStore();
 
+  // Fetch real IFC properties from backend for selected element
+  useEffect(() => {
+    if (!modelId || !selectedObjectId || !isBackendModelId(modelId)) return;
+
+    let active = true;
+    import("../../models/api/modelApi").then(({ getElementByGuid }) => {
+      getElementByGuid(modelId, selectedObjectId)
+        .then((element: any) => {
+          if (!active) return;
+          if (element && element.properties) {
+            const attributes: PropertyRow[] = [];
+            
+            // Convert properties dictionary into grouped PropertyRows
+            for (const [group, props] of Object.entries(element.properties)) {
+              if (props && typeof props === "object" && props !== null) {
+                for (const [label, val] of Object.entries(props)) {
+                  attributes.push({
+                    group,
+                    label,
+                    value: String(val),
+                  });
+                }
+              } else {
+                attributes.push({
+                  group: "Properties",
+                  label: group,
+                  value: String(props),
+                });
+              }
+            }
+
+            setSelectedProperties({
+              elementName: element.name || selectedObjectId,
+              ifcType: element.element_type || "IfcProduct",
+              globalModelId: selectedObjectId,
+              attributes,
+            });
+          }
+        })
+        .catch((err: any) => {
+          console.warn("Failed to load backend properties for element:", err);
+        });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [modelId, selectedObjectId, setSelectedProperties]);
+
   const [peerCursors, setPeerCursors] = useState<
     Record<
       string,

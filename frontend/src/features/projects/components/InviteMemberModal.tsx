@@ -74,10 +74,25 @@ export default function InviteMemberModal({ projectId, isOpen, onClose }: Props)
         handleClose();
       }, 2000);
     } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Failed to send invitation. Please try again.";
+      const raw = err instanceof Error ? err.message : "";
+
+      // Translate backend error messages into friendly UI copy
+      let msg = raw;
+      if (
+        /not found/i.test(raw) ||
+        /no account/i.test(raw) ||
+        raw.includes("404")
+      ) {
+        msg =
+          "No account found for that email address. The person needs to sign up first.";
+      } else if (/already a member/i.test(raw) || /conflict/i.test(raw)) {
+        msg = "This person is already a member of the project.";
+      } else if (/forbidden|permission/i.test(raw)) {
+        msg = "You need Admin role to invite members.";
+      } else if (!raw) {
+        msg = "Failed to send invitation. Please try again.";
+      }
+
       setApiError(msg);
     }
   };

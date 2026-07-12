@@ -1,10 +1,12 @@
 import {
   Home, Maximize2, RotateCcw, Hand, ZoomIn, MousePointer2,
-  Ruler, Tag, Scissors, Share2, Fullscreen,
+  Ruler, Tag, Scissors, Share2, Fullscreen, FileDown, Loader2
 } from "lucide-react";
+import { useState } from "react";
 import { useViewerStore } from "../store/viewerStore";
 import { useViewerContext } from "../context/ViewerProvider";
 import type { ToolMode } from "../types/viewer.types";
+import { exportModelBcf } from "../../models/api/modelApi";
 
 interface ToolBtn {
   icon: React.ReactNode;
@@ -16,7 +18,31 @@ interface ToolBtn {
 
 export function ViewerToolbar() {
   const { activeTool, setActiveTool } = useViewerStore();
-  const { goHome, fitToView, shareView } = useViewerContext();
+  const { goHome, fitToView, shareView, modelId } = useViewerContext();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportBCF = async () => {
+    if (!modelId || isExporting) return;
+    setIsExporting(true);
+    try {
+      const blob = await exportModelBcf(modelId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `model_${modelId}_bcf.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("BCF export failed:", err);
+      alert("Failed to export BCF package. Ensure the backend BCF service is running.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const isBackendModel = modelId && !modelId.startsWith("local-");
 
   const tools: ToolBtn[] = [
     { icon: <Home size={16} />, label: "Home", action: goHome },
@@ -29,6 +55,19 @@ export function ViewerToolbar() {
     { icon: <Tag size={16} />, label: "Annotation", tool: "annotation" },
     { icon: <Scissors size={16} />, label: "Section", tool: "section", divider: true },
     { icon: <Share2 size={16} />, label: "Share", action: shareView },
+    ...(isBackendModel
+      ? [
+          {
+            icon: isExporting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <FileDown size={16} />
+            ),
+            label: isExporting ? "Exporting..." : "BCF",
+            action: handleExportBCF,
+          },
+        ]
+      : []),
   ];
 
   return (
