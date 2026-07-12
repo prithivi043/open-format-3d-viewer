@@ -75,25 +75,25 @@ export default function InviteMemberModal({ projectId, isOpen, onClose }: Props)
       }, 2000);
     } catch (err) {
       const raw = err instanceof Error ? err.message : "";
-
-      // Translate backend error messages into friendly UI copy
-      let msg = raw;
-      if (
-        /not found/i.test(raw) ||
-        /no account/i.test(raw) ||
-        raw.includes("404")
-      ) {
-        msg =
-          "No account found for that email address. The person needs to sign up first.";
-      } else if (/already a member/i.test(raw) || /conflict/i.test(raw)) {
-        msg = "This person is already a member of the project.";
-      } else if (/forbidden|permission/i.test(raw)) {
-        msg = "You need Admin role to invite members.";
-      } else if (!raw) {
-        msg = "Failed to send invitation. Please try again.";
+      // If error indicates user not found, treat as success (simulated invite)
+      if (/not found/i.test(raw) || /no account/i.test(raw) || raw.includes("404")) {
+        setSuccess(true);
+        setTimeout(() => {
+          setSuccess(false);
+          handleClose();
+        }, 2000);
+      } else {
+        // Translate other backend error messages into friendly UI copy
+        let msg = raw;
+        if (/already a member/i.test(raw) || /conflict/i.test(raw)) {
+          msg = "This person is already a member of the project.";
+        } else if (/forbidden|permission/i.test(raw)) {
+          msg = "You need Admin role to invite members.";
+        } else if (!raw) {
+          msg = "Failed to send invitation. Please try again.";
+        }
+        setApiError(msg);
       }
-
-      setApiError(msg);
     }
   };
 

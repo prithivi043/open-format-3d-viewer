@@ -153,7 +153,7 @@ export async function inviteProjectMember(
     const member = mapMember(raw);
     // Emit real-time update
     emitProjectMemberUpdate(member);
-  } catch (err: any) {
+    return member;  } catch (err: any) {
     // Fallback to client-side simulation for any error (e.g., user not registered)
     const userId = `sim-user-${Math.random().toString(36).substring(2, 11)}`;
     const fullName = payload.email.split("@")[0] || "User";
@@ -165,11 +165,8 @@ export async function inviteProjectMember(
       role: payload.role,
     };
     // Store simulated member
-      // Ensure array exists for the project and add simulated member
-      if (!simulatedMembersStore[projectId]) {
-        simulatedMembersStore[projectId] = [];
-      }
-      simulatedMembersStore[projectId].push(newSim);
+const sims = simulatedMembersStore[projectId] ?? (simulatedMembersStore[projectId] = []);
+sims.push(newSim);
     const member = mapMember({
       user_id: newSim.userId,
       role: newSim.role,
