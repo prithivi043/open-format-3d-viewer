@@ -194,8 +194,15 @@ export function ViewerCanvas() {
     setAnnotationModal,
   } = useViewerStore();
 
-  const { canvasRef, isRealModel, modelId, addRealModelAnnotation, peerCursors } =
-    useViewerContext();
+  const {
+    canvasRef,
+    isRealModel,
+    modelId,
+    addRealModelAnnotation,
+    peerCursors,
+    sendMessage,
+    isConnected,
+  } = useViewerContext();
 
   const [rotation, setRotation] = useState(20);
   const [isDragging, setIsDragging] = useState(false);
@@ -249,6 +256,65 @@ export function ViewerCanvas() {
       window.removeEventListener("open-share-modal", handleOpenShareModal);
     };
   }, []);
+
+  // Listen for canvas sync updates from peers
+  useEffect(() => {
+    const handleSyncMeasure = (e: Event) => {
+      const pts = (e as CustomEvent).detail;
+      setMeasurePoints(pts);
+    };
+
+    const handleSyncSection = (e: Event) => {
+      const { height } = (e as CustomEvent).detail;
+      setSectionHeight(height);
+    };
+
+    const handleSyncSelect = (e: Event) => {
+      const objId = (e as CustomEvent).detail;
+      setSelectedObjectId(objId);
+
+      if (!isRealModel) {
+        if (objId) {
+          const floor = objId.replace("mock-slab-", "");
+          handleSelectMockFloor(floor);
+        } else {
+          setSelectedObjectId(null);
+          setSelectedProperties(null);
+        }
+      }
+    };
+
+    window.addEventListener("sync-measure-points", handleSyncMeasure);
+    window.addEventListener("sync-section", handleSyncSection);
+    window.addEventListener("sync-select", handleSyncSelect);
+
+    return () => {
+      window.removeEventListener("sync-measure-points", handleSyncMeasure);
+      window.removeEventListener("sync-section", handleSyncSection);
+      window.removeEventListener("sync-select", handleSyncSelect);
+    };
+  }, [isRealModel, setSelectedObjectId, setSelectedProperties]);
+
+  // Broadcast local measurement changes to peers
+  useEffect(() => {
+    if (activeTool === "measure" && measurePoints.length > 0 && isConnected) {
+      sendMessage("MODEL_SYNC", { type: "MEASURE_UPDATE", points: measurePoints });
+    }
+  }, [measurePoints, activeTool, isConnected, sendMessage]);
+
+  // Broadcast local section cuts to peers
+  useEffect(() => {
+    if (activeTool === "section" && isConnected) {
+      sendMessage("MODEL_SYNC", { type: "SECTION_UPDATE", height: sectionHeight });
+    }
+  }, [sectionHeight, activeTool, isConnected, sendMessage]);
+
+  // Broadcast local object selection to peers
+  useEffect(() => {
+    if (activeTool === "select" && selectedObjectId && isConnected) {
+      sendMessage("MODEL_SYNC", { type: "SELECT_UPDATE", objectId: selectedObjectId });
+    }
+  }, [selectedObjectId, activeTool, isConnected, sendMessage]);
 
   // Auto rotate when not dragging
   useEffect(() => {

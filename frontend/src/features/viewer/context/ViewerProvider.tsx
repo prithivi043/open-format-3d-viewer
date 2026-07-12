@@ -24,6 +24,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useViewerStore } from "../store/viewerStore";
 
+import { useAuthStore } from "../../auth/store/authStore";
 import { localModelStore } from "../../../lib/localModelStore";
 import { useWebSocket, type WSEvent } from "../../../hooks/useWebSocket";
 import { updateLabelLayout } from "../utils/labelLayout";
@@ -73,6 +74,7 @@ interface ViewerContextValue {
     }
   >;
   sendMessage: (event: string, data: unknown) => void;
+  isConnected: boolean;
 }
 
 const ViewerContext = createContext<ViewerContextValue | null>(null);
@@ -441,61 +443,230 @@ export function ViewerProvider({ modelId, children }: Props) {
     deleteMutationRef.current = deleteMutation;
   }, [deleteMutation]);
 
+  const sendMessageRef = useRef<(event: string, data: unknown) => void>(() => {});
+  const isReceivingCameraUpdateRef = useRef(false);
+  const lastCameraSentRef = useRef(0);
+
   // 3. Setup WebSocket connection
   const onMessageReceived = useCallback(
     (event: WSEvent, data: any) => {
       switch (event) {
-        case "USER_JOINED":
+        case "USER_JOINED": {
+          const peerId = data.userId;
+          if (!peerId) break;
+          const members = useViewerStore.getState().projectMembers;
+          const member = members.find((m) => m.id === peerId);
           setPeerCursors((prev) => ({
             ...prev,
-            [data.user.id]: {
+            [peerId]: {
               position: [0, 0, 0],
-              name: data.user.name,
-              avatarColor: data.user.avatarColor || "#7c3aed",
+              name: member?.fullName || `User ${peerId.slice(0, 4)}`,
+              avatarColor: member?.avatarColor || "#7c3aed",
             },
           }));
           break;
-        case "USER_LEFT":
+        }
+        case "USER_LEFT": {
+          const peerId = data.userId;
+          if (!peerId) break;
           setPeerCursors((prev) => {
             const next = { ...prev };
-            delete next[data.user_id];
+            delete next[peerId];
             return next;
           });
           break;
-        case "CURSOR_MOVED":
+        }
+        case "CURSOR_MOVED": {
+          const peerId = data.userId;
+          const pos = data.data?.position as [number, number, number] | undefined;
+          if (!peerId || !pos) break;
+
           setPeerCursors((prev) => {
-            if (!prev[data.user_id]) return prev;
+            const members = useViewerStore.getState().projectMembers;
+            const member = members.find((m) => m.id === peerId);
+            const peer = prev[peerId] || {
+              position: [0, 0, 0] as [number, number, number],
+              name: member?.fullName || `User ${peerId.slice(0, 4)}`,
+              avatarColor: member?.avatarColor || "#7c3aed",
+            };
+
             const updated = {
-              ...prev[data.user_id],
-              position: data.position as [number, number, number],
-            } as (typeof prev)[string];
+              ...peer,
+              position: pos,
+            };
 
             const viewer = viewerRef.current;
             if (viewer) {
-              // worldToCanvas uses viewMatrix/projMatrix — camera.project is NOT a fn
-              const sp = worldToCanvas(
-                viewer,
-                data.position as [number, number, number],
-              );
+              const sp = worldToCanvas(viewer, pos);
               if (sp) updated.screenPos = sp;
             }
             return {
               ...prev,
-              [data.user_id]: updated,
+              [peerId]: updated,
             };
           });
           break;
-        case "ANNOTATION_CREATED":
-        case "ANNOTATION_UPDATED":
-          queryClient.invalidateQueries({
-            queryKey: ["model-annotations", modelId],
-          });
-          break;
-        case "MODEL_PROCESSING":
-          if (data && typeof data === "object" && data !== null && "progress_pct" in data) {
-            setLoadingProgress(data.progress_pct as number);
+        }
+        case "MODEL_SYNC": {
+          const peerId = data.userId;
+          const syncData = data.data;
+          if (!peerId || !syncData) break;
+
+          const currentUserId = useAuthStore.getState().user?.id;
+          if (peerId === currentUserId) break;
+
+          switch (syncData.type) {
+            case "MEASURE_UPDATE": {
+              const activeTool = useViewerStore.getState().activeTool;
+              if (activeTool !== "measure") {
+                window.dispatchEvent(
+                  new CustomEvent("sync-measure-points", { detail: syncData.points })
+                );
+              }
+              break;
+            }
+            case "SECTION_UPDATE": {
+              const activeTool = useViewerStore.getState().activeTool;
+              if (activeTool !== "section") {
+                window.dispatchEvent(
+                  new CustomEvent("sync-section", {
+                    detail: { height: syncData.height },
+                  })
+                );
+              }
+              break;
+            }
+            case "SECTION_PLANE_CREATED": {
+              const sectionPlanesPlugin = sectionPlanesPluginRef.current as any;
+              if (sectionPlanesPlugin && isRealModel) {
+                if (!sectionPlanesPlugin.sectionPlanes[syncData.id]) {
+                  sectionPlanesPlugin.createSectionPlane({
+                    id: syncData.id,
+                    pos: syncData.pos,
+                    dir: syncData.dir,
+                  });
+                  sectionPlanesPlugin.showControl(syncData.id);
+                }
+              }
+              break;
+            }
+            case "SECTION_PLANE_CLEARED": {
+              const sectionPlanesPlugin = sectionPlanesPluginRef.current as any;
+              if (sectionPlanesPlugin && isRealModel) {
+                sectionPlanesPlugin.clear();
+              }
+              break;
+            }
+            case "SELECT_UPDATE": {
+              const activeTool = useViewerStore.getState().activeTool;
+              if (activeTool !== "select") {
+                window.dispatchEvent(
+                  new CustomEvent("sync-select", { detail: syncData.objectId })
+                );
+              }
+              break;
+            }
+            case "CAMERA_UPDATE": {
+              const viewer = viewerRef.current;
+              if (viewer && syncData.eye && syncData.look && syncData.up) {
+                isReceivingCameraUpdateRef.current = true;
+                viewer.camera.eye = syncData.eye;
+                viewer.camera.look = syncData.look;
+                viewer.camera.up = syncData.up;
+                isReceivingCameraUpdateRef.current = false;
+              }
+              break;
+            }
+            case "PRESENCE_HELLO": {
+              if (currentUserId) {
+                sendMessageRef.current("MODEL_SYNC", {
+                  type: "PRESENCE_WELCOME",
+                  userId: currentUserId,
+                });
+              }
+              const members = useViewerStore.getState().projectMembers;
+              const member = members.find((m) => m.id === peerId);
+              setPeerCursors((prev) => ({
+                ...prev,
+                [peerId]: {
+                  position: prev[peerId]?.position || [0, 0, 0],
+                  name: member?.fullName || `User ${peerId.slice(0, 4)}`,
+                  avatarColor: member?.avatarColor || "#7c3aed",
+                },
+              }));
+              break;
+            }
+            case "PRESENCE_WELCOME": {
+              const members = useViewerStore.getState().projectMembers;
+              const member = members.find((m) => m.id === peerId);
+              setPeerCursors((prev) => ({
+                ...prev,
+                [peerId]: {
+                  position: prev[peerId]?.position || [0, 0, 0],
+                  name: member?.fullName || `User ${peerId.slice(0, 4)}`,
+                  avatarColor: member?.avatarColor || "#7c3aed",
+                },
+              }));
+              break;
+            }
+            default:
+              break;
           }
           break;
+        }
+        case "ANNOTATION_CREATED": {
+          const syncData = data.data;
+          if (!isBackendModel && syncData?.annotation) {
+            const anno = syncData.annotation;
+            useViewerStore.getState().addAnnotation({
+              id: anno.id,
+              modelId: anno.modelId || modelId,
+              positionXyz: anno.positionXyz || [0, 0, 0],
+              normalXyz: anno.normalXyz || [0, 0, 1],
+              message: anno.message || "",
+              status: anno.status || "open",
+              createdAt: anno.createdAt || new Date().toISOString(),
+            });
+          } else {
+            queryClient.invalidateQueries({
+              queryKey: ["model-annotations", modelId],
+            });
+          }
+          break;
+        }
+        case "ANNOTATION_UPDATED": {
+          const syncData = data.data;
+          if (!isBackendModel && syncData) {
+            const store = useViewerStore.getState();
+            if (syncData.status === "deleted" && syncData.annotation_id) {
+              const filtered = store.annotations.filter((a) => a.id !== syncData.annotation_id);
+              store.setAnnotations(filtered);
+            } else if (syncData.annotation) {
+              const updated = store.annotations.map((a) =>
+                a.id === syncData.annotation.id ? { ...a, ...syncData.annotation } : a
+              );
+              store.setAnnotations(updated);
+            }
+          } else {
+            queryClient.invalidateQueries({
+              queryKey: ["model-annotations", modelId],
+            });
+          }
+          break;
+        }
+        case "MODEL_PROCESSING":
+        case "MODEL_PROGRESS": {
+          const progressData = data.data || data;
+          if (progressData && typeof progressData === "object") {
+            const pct = progressData.percent !== undefined 
+              ? progressData.percent 
+              : progressData.progress_pct;
+            if (typeof pct === "number") {
+              setLoadingProgress(pct);
+            }
+          }
+          break;
+        }
         case "MODEL_READY":
           setLoadingProgress(100);
           break;
@@ -506,10 +677,48 @@ export function ViewerProvider({ modelId, children }: Props) {
           break;
       }
     },
-    [modelId, queryClient],
+    [modelId, queryClient, isRealModel, isBackendModel],
   );
 
-  const { sendMessage } = useWebSocket(modelId, onMessageReceived);
+  const { sendMessage, isConnected } = useWebSocket(modelId, onMessageReceived);
+
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
+
+  // Send presence hello on connection
+  useEffect(() => {
+    if (isConnected) {
+      const currentUserId = useAuthStore.getState().user?.id;
+      if (currentUserId) {
+        sendMessage("MODEL_SYNC", {
+          type: "PRESENCE_HELLO",
+          userId: currentUserId,
+        });
+      }
+    }
+  }, [isConnected, sendMessage]);
+
+  // Throttled camera position sender
+  const sendCameraUpdateThrottled = useCallback(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    const now = Date.now();
+    if (now - lastCameraSentRef.current > 150) {
+      sendMessage("MODEL_SYNC", {
+        type: "CAMERA_UPDATE",
+        eye: Array.from(viewer.camera.eye),
+        look: Array.from(viewer.camera.look),
+        up: Array.from(viewer.camera.up),
+      });
+      lastCameraSentRef.current = now;
+    }
+  }, [sendMessage]);
+
+  const sendCameraUpdateThrottledRef = useRef(sendCameraUpdateThrottled);
+  useEffect(() => {
+    sendCameraUpdateThrottledRef.current = sendCameraUpdateThrottled;
+  }, [sendCameraUpdateThrottled]);
 
   // Throttled cursor position sender
   const lastCursorSentRef = useRef(0);
@@ -693,6 +902,9 @@ export function ViewerProvider({ modelId, children }: Props) {
           viewer.camera.on("matrix", () => {
             updateCursorProjectionsRef.current();
             updateLabelLayout();
+            if (!isReceivingCameraUpdateRef.current) {
+              sendCameraUpdateThrottledRef.current();
+            }
           });
 
           // Send cursor movements on mousemove
@@ -1208,6 +1420,7 @@ export function ViewerProvider({ modelId, children }: Props) {
         addRealModelAnnotation,
         peerCursors,
         sendMessage,
+        isConnected,
       }}
     >
       {children}

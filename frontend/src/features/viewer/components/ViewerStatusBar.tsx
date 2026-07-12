@@ -1,11 +1,30 @@
 import { useViewerStore } from "../store/viewerStore";
+import { useViewerContext } from "../context/ViewerProvider";
 
 export function ViewerStatusBar() {
   const { elementCount, loadingProgress, fps, projectMembers } =
     useViewerStore();
 
-  const visibleMembers = projectMembers.slice(0, 5);
-  const extraCount = Math.max(0, projectMembers.length - 5);
+  const { peerCursors, isConnected } = useViewerContext();
+
+  // Active peers = people currently in the session (have cursor data)
+  const activePeerIds = Object.keys(peerCursors || {});
+  const activePeerCount = activePeerIds.length;
+
+  // Show avatar bubbles for active peers first, then fill from project members
+  const activePeers = activePeerIds
+    .map((id) => {
+      const cursor = peerCursors[id];
+      const member = projectMembers.find((m) => m.id === id);
+      return {
+        id,
+        name: cursor?.name || member?.fullName || `User ${id.slice(0, 4)}`,
+        avatarColor: cursor?.avatarColor || member?.avatarColor || "#7c3aed",
+      };
+    })
+    .slice(0, 5);
+
+  const extraCount = Math.max(0, activePeerCount - 5);
 
   return (
     <div
@@ -75,51 +94,76 @@ export function ViewerStatusBar() {
         )}
       </div>
 
-      {/* Right side: real project members from the API */}
-      <div className="ml-auto flex items-center gap-2">
-        {visibleMembers.length > 0 ? (
+      {/* Right side: live collaboration status */}
+      <div className="ml-auto flex items-center gap-3">
+        {/* WebSocket connection indicator */}
+        <div className="flex items-center gap-1.5">
+          <div
+            className={`w-1.5 h-1.5 rounded-full transition-colors duration-500 ${
+              isConnected ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+            }`}
+          />
+          <span className="text-[10px] text-gray-500">
+            {isConnected ? "Live" : "Offline"}
+          </span>
+        </div>
+
+        {activePeerCount > 0 && (
           <>
-            <div className="flex items-center -space-x-1.5">
-              {visibleMembers.map((member) => {
-                const initials = member.fullName
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2);
-                return (
+            <div
+              className="w-px h-4"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            />
+
+            {/* Active peer avatars */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center -space-x-1.5">
+                {activePeers.map((peer) => {
+                  const initials = peer.name
+                    .split(" ")
+                    .map((n: string) => n[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2);
+                  return (
+                    <div
+                      key={peer.id}
+                      title={`${peer.name} — viewing now`}
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-2 ring-[#080a1a] cursor-default transition-transform duration-150 hover:scale-110 hover:z-10"
+                      style={{ background: peer.avatarColor }}
+                    >
+                      {initials}
+                    </div>
+                  );
+                })}
+                {extraCount > 0 && (
                   <div
-                    key={member.id}
-                    title={member.fullName}
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-1 ring-[#080a1a] cursor-default"
-                    style={{ background: member.avatarColor }}
+                    title={`+${extraCount} more collaborators`}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-2 ring-[#080a1a] bg-slate-600"
                   >
-                    {initials}
+                    +{extraCount}
                   </div>
-                );
-              })}
-              {extraCount > 0 && (
-                <div
-                  title={`+${extraCount} more`}
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-1 ring-[#080a1a] bg-slate-600"
-                >
-                  +{extraCount}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </div>
               <span className="text-[10px] text-gray-400">
-                {projectMembers.length} Online
+                {activePeerCount} viewing
               </span>
             </div>
           </>
-        ) : (
-          /* No members loaded yet: show a subtle placeholder */
-          <div className="flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-            <span className="text-[10px] text-gray-600">No collaborators</span>
-          </div>
+        )}
+
+        {activePeerCount === 0 && projectMembers.length > 0 && (
+          <>
+            <div
+              className="w-px h-4"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            />
+            <span className="text-[10px] text-gray-600">
+              {projectMembers.length}{" "}
+              {projectMembers.length === 1 ? "member" : "members"} · no one else
+              viewing
+            </span>
+          </>
         )}
       </div>
     </div>

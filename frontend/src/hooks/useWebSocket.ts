@@ -6,11 +6,13 @@ export type WSEvent =
   | "MODEL_READY"
   | "MODEL_FAILED"
   | "MODEL_PROCESSING"
+  | "MODEL_PROGRESS"
   | "ANNOTATION_CREATED"
   | "ANNOTATION_UPDATED"
   | "USER_JOINED"
   | "USER_LEFT"
   | "CURSOR_MOVED"
+  | "MODEL_SYNC"
   | "PONG";
 
 export interface WSMessage {
@@ -30,19 +32,27 @@ export function useWebSocket(
 
   // Build the WS URL based on VITE_API_BASE_URL or default
   const getWsUrl = useCallback(() => {
+    // Detect localhost and point directly to port 8001 (Fastify ws-server)
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return `ws://localhost:8001/v1/ws?token=${token}&model_id=${modelId || ""}`;
+    }
+
     const apiBase =
       import.meta.env.VITE_API_BASE_URL ||
       "https://open-format-3d-viewer.onrender.com/v1";
     try {
       const url = new URL(apiBase);
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-      url.pathname = "/connect";
+      url.pathname = "/v1/ws";
       url.searchParams.set("token", token);
+      if (modelId) {
+        url.searchParams.set("model_id", modelId);
+      }
       return url.toString();
     } catch {
-      return `wss://open-format-3d-viewer.onrender.com/connect?token=${token}`;
+      return `wss://open-format-3d-viewer.onrender.com/v1/ws?token=${token}&model_id=${modelId || ""}`;
     }
-  }, [token]);
+  }, [token, modelId]);
 
   const connectRef = useRef<(() => void) | undefined>(undefined);
 
@@ -89,9 +99,20 @@ export function useWebSocket(
 
       ws.onmessage = (event) => {
         try {
-          const parsed = JSON.parse(event.data) as WSMessage;
+          const parsed = JSON.parse(event.data);
+          let eventName = parsed.event;
+
+          // Normalize events from backend payload format
+          if (eventName === "user:join") {
+            eventName = "USER_JOINED";
+          } else if (eventName === "user:leave") {
+            eventName = "USER_LEFT";
+          } else if (eventName === "CURSOR_MOVE") {
+            eventName = "CURSOR_MOVED";
+          }
+
           if (onMessageReceived) {
-            onMessageReceived(parsed.event, parsed.data);
+            onMessageReceived(eventName as WSEvent, parsed);
           }
         } catch (err) {
           console.error("Failed to parse WS message:", err);

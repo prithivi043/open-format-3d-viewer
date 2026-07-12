@@ -40,7 +40,7 @@ export async function createProject(
 ): Promise<Project> {
   const res = await apiClient<ProjectDTO>(BASE, {
     method: "POST",
-    body: JSON.stringify(data),
+    body: data,
   });
   return mapProject(res);
 }
@@ -51,7 +51,7 @@ export async function updateProject(
 ): Promise<Project> {
   const res = await apiClient<ProjectDTO>(`${BASE}/${projectId}`, {
     method: "PATCH",
-    body: JSON.stringify(data),
+    body: data,
   });
   return mapProject(res);
 }
@@ -76,7 +76,7 @@ export async function inviteProjectMember(
 ): Promise<ProjectMemberDetail> {
   return apiClient<ProjectMemberDetail>(`${BASE}/${projectId}/members`, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 

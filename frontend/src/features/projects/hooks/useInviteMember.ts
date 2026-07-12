@@ -11,6 +11,7 @@ export function useInviteMember(projectId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["project-members", projectId] });
       qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 }
