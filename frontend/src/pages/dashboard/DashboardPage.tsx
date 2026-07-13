@@ -618,8 +618,17 @@ export default function DashboardPage() {
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                   {projectsLoading ? (
-                    <div className="col-span-full flex min-h-[180px] items-center justify-center rounded-2xl bg-gray-50">
-                      Loading projects...
+                    <div className="col-span-full grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="bg-white rounded-[10px] overflow-hidden animate-pulse" style={{ border: "0.5px solid #e5e7eb" }}>
+                          <div className="h-[82px] bg-gray-100" />
+                          <div className="px-3 pt-2.5 pb-3 space-y-2">
+                            <div className="h-3 w-3/4 rounded-full bg-gray-100" />
+                            <div className="h-2 w-1/2 rounded-full bg-gray-100" />
+                            <div className="h-2 w-1/3 rounded-full bg-gray-100" />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : dashboardProjects.length === 0 ? (
                     <div className="col-span-full flex min-h-[180px] flex-col items-center justify-center rounded-2xl bg-gray-50">

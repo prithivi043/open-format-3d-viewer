@@ -41,13 +41,65 @@ export async function getModelTree(modelId: string): Promise<IFCNode[]> {
 }
 
 export async function getProjectModels(projectId: string): Promise<Model[]> {
-  return apiClient<Model[]>(`/projects/${projectId}/models`);
+  let serverModels: Model[] = [];
+  try {
+    serverModels = await apiClient<Model[]>(`/projects/${projectId}/models`);
+  } catch (err) {
+    console.warn("Failed to fetch project models from backend, using local simulation:", err);
+  }
+
+  let localModels: Model[] = [];
+  try {
+    const saved = localStorage.getItem(`local_models_${projectId}`);
+    if (saved) {
+      localModels = JSON.parse(saved);
+    }
+  } catch (err) {
+    console.error("Failed to parse local models from localStorage:", err);
+  }
+
+  const combined = [...serverModels];
+  for (const local of localModels) {
+    if (!combined.some((srv) => srv.id === local.id)) {
+      combined.push(local);
+    }
+  }
+
+  return combined;
 }
 
 export async function deleteModel(modelId: string): Promise<void> {
-  return apiClient<void>(`/models/${modelId}`, {
-    method: "DELETE",
-  });
+  try {
+    await apiClient<void>(`/models/${modelId}`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    console.warn("Failed to delete model from backend:", err);
+  }
+
+  try {
+    await localModelStore.deleteFile(modelId);
+  } catch (err) {
+    console.warn("Failed to delete model file from IndexedDB:", err);
+  }
+
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("local_models_")) {
+        const data = localStorage.getItem(key);
+        if (data) {
+          const list = JSON.parse(data) as any[];
+          const filtered = list.filter((m) => m.id !== modelId);
+          if (filtered.length !== list.length) {
+            localStorage.setItem(key, JSON.stringify(filtered));
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Failed to delete model metadata from localStorage:", err);
+  }
 }
 
 export async function getElementByGuid(

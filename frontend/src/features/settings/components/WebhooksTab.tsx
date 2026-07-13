@@ -51,6 +51,7 @@ export default function WebhooksTab() {
   const updateMutation = useUpdateWebhook();
 
   const [showDialog, setShowDialog] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const {
     register,
@@ -91,9 +92,10 @@ export default function WebhooksTab() {
     reset({ url: "", events: [] });
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Remove this webhook? This cannot be undone.")) return;
-    await deleteMutation.mutateAsync(id);
+  async function handleDeleteConfirm() {
+    if (!deleteTargetId) return;
+    await deleteMutation.mutateAsync(deleteTargetId);
+    setDeleteTargetId(null);
   }
 
   async function handleToggle(id: string, current: boolean) {
@@ -193,7 +195,7 @@ export default function WebhooksTab() {
                   )}
                 </button>
                 <button
-                  onClick={() => handleDelete(w.id)}
+                  onClick={() => setDeleteTargetId(w.id)}
                   disabled={deleteMutation.isPending}
                   title="Remove webhook"
                   className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-[#999] hover:text-red-500 disabled:opacity-40"
@@ -223,6 +225,36 @@ export default function WebhooksTab() {
           ))}
         </div>
       </div>
+
+      {/* ── Delete webhook confirm ── */}
+      {deleteTargetId && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-[380px] p-6 text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4">
+              <WebhookIcon size={22} className="text-red-500" />
+            </div>
+            <h3 className="font-semibold text-[#1a1a1a] mb-1">Remove Webhook?</h3>
+            <p className="text-xs text-[#888] mb-5">This webhook will stop receiving events immediately. This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTargetId(null)}
+                disabled={deleteMutation.isPending}
+                className="flex-1 border border-[#ede8e0] text-sm text-[#555] py-2.5 rounded-xl hover:bg-[#faf7f3] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteMutation.isPending}
+                className="flex-1 bg-red-600 text-white text-sm py-2.5 rounded-xl font-medium hover:bg-red-700 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {deleteMutation.isPending && <Loader2 size={14} className="animate-spin" />}
+                Remove Webhook
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Register webhook dialog ── */}
       {showDialog && (

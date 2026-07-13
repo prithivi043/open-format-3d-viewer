@@ -30,6 +30,7 @@ export async function uploadModel(
 }
 
 async function localUpload({
+  projectId,
   file,
   onProgress,
 }: UploadModelOptions): Promise<UploadModelResult> {
@@ -39,6 +40,25 @@ async function localUpload({
   await simulateProgress(onProgress);
 
   await localModelStore.saveFile(modelId, file);
+
+  // Save local model metadata persistently so it shows up in models list
+  const localModel = {
+    id: modelId,
+    project_id: projectId,
+    filename: file.name,
+    content_type: file.type || "application/octet-stream",
+    size_bytes: file.size,
+    status: "ready" as const,
+    created_at: new Date().toISOString(),
+  };
+  try {
+    const current = localStorage.getItem(`local_models_${projectId}`);
+    const list = current ? JSON.parse(current) : [];
+    list.push(localModel);
+    localStorage.setItem(`local_models_${projectId}`, JSON.stringify(list));
+  } catch (err) {
+    console.error("Failed to save local model metadata:", err);
+  }
 
   return { modelId, storageType: "local" };
 }
@@ -61,6 +81,9 @@ async function cloudUpload(opts: UploadModelOptions): Promise<UploadModelResult>
     });
 
     await confirmUpload(uploadData.model_id);
+
+    // Save to local IndexedDB store as well, so it can be loaded by Viewer
+    await localModelStore.saveFile(uploadData.model_id, opts.file);
 
     return { modelId: uploadData.model_id, storageType: "cloud" };
   } catch (err) {

@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Settings } from "lucide-react";
 import { useAuthStore } from "../../features/auth/store/authStore";
 import ApiKeysTab from "../../features/settings/components/ApiKeysTab";
 import WebhooksTab from "../../features/settings/components/WebhooksTab";
 import AccountTab from "../../features/settings/components/AccountTab";
+import SecurityTab from "../../features/settings/components/SecurityTab";
+import PreferencesTab from "../../features/settings/components/PreferencesTab";
 import type { PlanType } from "../../features/settings/types/settings.types";
 
 type Tab = "Account" | "Security" | "API Keys" | "webhooks" | "preferences";
@@ -53,12 +54,8 @@ export default function UserProfilePage() {
           {activeTab === "Account" && <AccountTab />}
           {activeTab === "API Keys" && <ApiKeysTab plan={plan} />}
           {activeTab === "webhooks" && <WebhooksTab />}
-          {(activeTab === "Security" || activeTab === "preferences") && (
-            <div className="mt-16 text-center text-[#bbb]">
-              <Settings size={36} className="mx-auto mb-3 opacity-25" />
-              <p className="text-sm">{activeTab} settings coming soon</p>
-            </div>
-          )}
+          {activeTab === "Security" && <SecurityTab />}
+          {activeTab === "preferences" && <PreferencesTab />}
         </div>
       </div>
     </div>

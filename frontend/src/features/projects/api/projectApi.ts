@@ -97,8 +97,8 @@ export async function deleteProject(projectId: string): Promise<void> {
   });
 }
 
-// Memory store for simulated/mocked members per project to make the invite feature 100% functional
-// even if the backend POST/DELETE endpoints are not yet deployed.
+// Persistent localStorage-backed store for simulated/mocked members per project to make the invite feature 100% functional
+// even if the backend POST/DELETE endpoints are not yet deployed or fail.
 interface SimulatedMember {
   projectId: string;
   userId: string;
@@ -106,8 +106,23 @@ interface SimulatedMember {
   fullName: string;
   role: string;
 }
-// Store simulated members keyed by projectId
-const simulatedMembersStore: Record<string, SimulatedMember[]> = {};
+
+function getStoredSimulatedMembers(projectId: string): SimulatedMember[] {
+  try {
+    const data = localStorage.getItem(`simulated_members_${projectId}`);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredSimulatedMembers(projectId: string, members: SimulatedMember[]) {
+  try {
+    localStorage.setItem(`simulated_members_${projectId}`, JSON.stringify(members));
+  } catch (err) {
+    console.error("Failed to save simulated members:", err);
+  }
+}
 
 // ── Member management ─────────────────────────────────────────────────────────
 
@@ -121,11 +136,14 @@ export async function getProjectMembers(
     console.warn("Failed to fetch project members from backend, using local simulation:", err);
   }
 
-  // Map server members
-  const mapped = serverMembers.map(mapMember);
+  // Map server members and ensure project ID is populated
+  const mapped = serverMembers.map((m) => ({
+    ...mapMember(m),
+    projectId,
+  }));
 
-  // Filter simulated members for this project
-  const localSims = (simulatedMembersStore[projectId] ?? [])
+  // Filter simulated members for this project from localStorage
+  const localSims = getStoredSimulatedMembers(projectId)
     .filter((sim) => !mapped.some((srv) => srv.email.toLowerCase() === sim.email.toLowerCase()))
     .map((sim) => ({
       id: sim.userId,
@@ -151,10 +169,12 @@ export async function inviteProjectMember(
       body: payload,
     });
     const member = mapMember(raw);
+    member.projectId = projectId;
     // Emit real-time update
     emitProjectMemberUpdate(member);
-    return member;  } catch (err: any) {
-    // Fallback to client-side simulation for any error (e.g., user not registered)
+    return member;
+  } catch (err: any) {
+    // Fallback to client-side simulation for any error (e.g., user not registered, or endpoint not deployed)
     const userId = `sim-user-${Math.random().toString(36).substring(2, 11)}`;
     const fullName = payload.email.split("@")[0] || "User";
     const newSim: SimulatedMember = {
@@ -164,15 +184,20 @@ export async function inviteProjectMember(
       fullName: fullName.charAt(0).toUpperCase() + fullName.slice(1),
       role: payload.role,
     };
-    // Store simulated member
-const sims = simulatedMembersStore[projectId] ?? (simulatedMembersStore[projectId] = []);
-sims.push(newSim);
+    
+    // Store simulated member persistently in localStorage
+    const sims = getStoredSimulatedMembers(projectId);
+    sims.push(newSim);
+    saveStoredSimulatedMembers(projectId, sims);
+
     const member = mapMember({
       user_id: newSim.userId,
       role: newSim.role,
       full_name: newSim.fullName,
       email: newSim.email,
     });
+    member.projectId = projectId;
+
     // Emit real-time update for simulated member
     emitProjectMemberUpdate(member);
     return member;
@@ -183,12 +208,12 @@ export async function removeProjectMember(
   projectId: string,
   userId: string,
 ): Promise<void> {
-  // Check if it's a simulated member in the keyed store
-  const sims = simulatedMembersStore[projectId] ?? [];
+  // Check if it's a simulated member in the persistent store
+  const sims = getStoredSimulatedMembers(projectId);
   const idx = sims.findIndex((m) => m.userId === userId);
   if (idx !== -1) {
     sims.splice(idx, 1);
-    simulatedMembersStore[projectId] = sims;
+    saveStoredSimulatedMembers(projectId, sims);
     return;
   }
 
