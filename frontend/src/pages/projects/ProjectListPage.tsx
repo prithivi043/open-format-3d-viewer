@@ -16,6 +16,7 @@ import { useDeleteProject } from "../../features/projects/hooks/useDeleteProject
 import { getProjectImage } from "../../features/projects/utils/getProjectImage";
 import ProjectModal from "../../features/projects/components/ProjectModal";
 import { useProjects } from "../../features/projects/hooks/useProjects";
+import { useProjectModelSummaries } from "../../features/models/hooks/useProjectModelSummaries";
 import type { Project } from "../../features/projects/types/project.types";
 
 // ── Custom Confirm Dialog ──────────────────────────────────────────────────────
@@ -79,6 +80,12 @@ export default function ProjectListPage() {
   const [isModalOpen,     setIsModalOpen]     = useState(false);
   const [search,          setSearch]          = useState("");
   const [currentPage,     setCurrentPage]     = useState(1);
+
+  // Fetch per-project model summaries (count + latest upload date) in parallel.
+  // The backend never returns model_count in ProjectResponse, so we derive it
+  // from the actual model records for each project.
+  const projectIds = useMemo(() => projects.map((p) => p.id), [projects]);
+  const modelSummaries = useProjectModelSummaries(projectIds);
 
   // Close dropdown menu when clicking outside
   useEffect(() => {
@@ -267,7 +274,11 @@ export default function ProjectListPage() {
                           {project.description || "No description"}
                         </p>
                         <p className="mt-1 text-xs text-slate-400">
-                          {project.modelCount} Model{project.modelCount !== 1 ? "s" : ""}
+                          {(() => {
+                            const s = modelSummaries.get(project.id);
+                            if (!s || s.isLoading) return <span className="inline-block h-3 w-16 rounded bg-slate-100 animate-pulse" />;
+                            return s.modelCount === 0 ? "No models yet" : `${s.modelCount} Model${s.modelCount !== 1 ? "s" : ""}`;
+                          })()}
                         </p>
                       </div>
 
@@ -317,7 +328,15 @@ export default function ProjectListPage() {
 
                     <div className="mt-4 flex items-center justify-between">
                       <p className="text-xs text-slate-400">
-                        Updated {new Date(project.updatedAt ?? project.createdAt).toLocaleDateString()}
+                        {(() => {
+                          const s = modelSummaries.get(project.id);
+                          // If we have a latest model upload date, show that;
+                          // otherwise fall back to the project's own updated_at.
+                          const displayDate = (s && !s.isLoading && s.latestModelDate)
+                            ? s.latestModelDate
+                            : (project.updatedAt ?? project.createdAt);
+                          return `Updated ${new Date(displayDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+                        })()}
                       </p>
                       <span
                         className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${
