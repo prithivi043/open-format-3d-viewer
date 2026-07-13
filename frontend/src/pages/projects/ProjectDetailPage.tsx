@@ -621,7 +621,7 @@ export default function ProjectDetailPage() {
               {/* meta pills */}
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 px-3 py-1 text-xs text-slate-500">
-                  <FileBox size={12} /> {project.modelCount} model{project.modelCount !== 1 ? "s" : ""}
+                  <FileBox size={12} /> {models ? models.length : project.modelCount} model{(models ? models.length : project.modelCount) !== 1 ? "s" : ""}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-white border border-slate-200 px-3 py-1 text-xs text-slate-500">
                   <Users size={12} /> {project.memberCount} member{project.memberCount !== 1 ? "s" : ""}
@@ -685,7 +685,7 @@ export default function ProjectDetailPage() {
                     {/* Table header bar */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
                       <p className="text-sm text-slate-500">
-                        {models.length} model{models.length !== 1 ? "s" : ""} · {formatBytes(project.storageBytes)} used
+                        {models.length} model{models.length !== 1 ? "s" : ""} · {formatBytes(models.reduce((sum, m) => sum + (m.size_bytes ?? 0), 0))} used
                       </p>
                       <button
                         onClick={() => refetchModels()}

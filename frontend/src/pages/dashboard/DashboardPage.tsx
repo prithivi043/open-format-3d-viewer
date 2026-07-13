@@ -24,6 +24,7 @@ import ProjectModal from "../../features/projects/components/ProjectModal";
 import { useAuthStore } from "../../features/auth/store/authStore";
 import { useUploadModel } from "../../features/models/hooks/useUploadModel";
 import { useUploadStore } from "../../features/models/store/uploadStore";
+import { useDashboardStats } from "../../features/models/hooks/useDashboardStats";
 
 interface DashboardProject {
   id: string;
@@ -98,6 +99,14 @@ function timeAgo(isoString: string): string {
   const diffWk = Math.floor(diffDay / 7);
   if (diffWk < 5) return `${diffWk}w ago`;
   return date.toLocaleDateString();
+}
+
+function formatStorage(bytes: number): { value: string; unit: string } {
+  if (!bytes || bytes === 0) return { value: "0", unit: "B" };
+  if (bytes < 1_024) return { value: bytes.toFixed(0), unit: "B" };
+  if (bytes < 1_048_576) return { value: (bytes / 1_024).toFixed(1), unit: "KB" };
+  if (bytes < 1_073_741_824) return { value: (bytes / 1_048_576).toFixed(1), unit: "MB" };
+  return { value: (bytes / 1_073_741_824).toFixed(2), unit: "GB" };
 }
 
 function bytesToGB(bytes: number): string {
@@ -334,24 +343,24 @@ export default function DashboardPage() {
   // ── Derived stats ──────────────────────────────────────
   const totalProjects = projects.length;
 
-  const totalModels = useMemo(
-    () => projects.reduce((sum, p) => sum + p.modelCount, 0),
-    [projects],
-  );
+  // Aggregate real model counts and storage by querying each project's model list.
+  // The backend ProjectResponse does not return model_count or storage_bytes,
+  // so we must compute these from the actual model records.
+  const projectIds = useMemo(() => projects.map((p) => p.id), [projects]);
+  const {
+    totalModels,
+    totalStorageBytes,
+    isLoading: statsLoading,
+  } = useDashboardStats(projectIds);
 
   const totalCollaborators = useMemo(
-    () => projects.reduce((sum, p) => sum + p.memberCount, 0),
-    [projects],
-  );
-
-  const totalStorageBytes = useMemo(
-    () => projects.reduce((sum, p) => sum + p.storageBytes, 0),
+    () => projects.reduce((sum, p) => sum + (p.memberCount ?? 1), 0),
     [projects],
   );
 
   const storageQuotaBytes = useAuthStore((s) => s.storageQuotaBytes);
   const storageQuotaGB = bytesToGB(storageQuotaBytes);
-  const storageUsedGB = bytesToGB(totalStorageBytes);
+  const storageFormatted = formatStorage(totalStorageBytes);
   const storagePctVal = storagePct(totalStorageBytes, storageQuotaBytes);
 
   // ── Quick Upload helpers ───────────────────────────────
@@ -548,9 +557,11 @@ export default function DashboardPage() {
                 />
                 <StatCard
                   label="Models"
-                  value={totalModels}
+                  value={statsLoading ? "…" : totalModels}
                   delta={
-                    totalModels > 0
+                    statsLoading
+                      ? "Counting models…"
+                      : totalModels > 0
                       ? `Across ${totalProjects} project${totalProjects !== 1 ? "s" : ""}`
                       : "No models yet"
                   }
@@ -561,9 +572,13 @@ export default function DashboardPage() {
                 />
                 <StatCard
                   label="Storage"
-                  value={storageUsedGB}
-                  unit="GB"
-                  delta={`of ${storageQuotaGB} GB used (${storagePctVal}%)`}
+                  value={statsLoading ? "…" : storageFormatted.value}
+                  unit={statsLoading ? "" : storageFormatted.unit}
+                  delta={
+                    statsLoading
+                      ? "Calculating storage…"
+                      : `of ${storageQuotaGB} GB used (${storagePctVal}%)`
+                  }
                   deltaPositive={false}
                   icon={<Database size={14} />}
                   accentColor="#BA7517"
@@ -731,7 +746,7 @@ export default function DashboardPage() {
                 </div>
 
                 <p className="text-[13px] text-gray-600 text-center">
-                  {storageUsedGB} GB of {storageQuotaGB} GB used
+                  {statsLoading ? "Calculating…" : `${storageFormatted.value} ${storageFormatted.unit} of ${storageQuotaGB} GB used`}
                 </p>
               </div>
 
