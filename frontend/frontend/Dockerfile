@@ -1,36 +1,41 @@
-# Step 1: Build stage
-FROM node:20-alpine AS build
+FROM node:20-alpine AS builder
 
 # Install pnpm
 RUN npm install -g pnpm
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files first to leverage Docker layer caching
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
+# Install dependencies using frozen lockfile for deterministic builds
 RUN pnpm install --frozen-lockfile
 
-# Copy source files
+# Copy the rest of the application files
 COPY . .
 
-# Build the project
+# Build the production bundle
 RUN pnpm build
 
-# Step 2: Serve stage
+# Serve stage using lightweight Nginx
 FROM nginx:stable-alpine
 
-# Copy built assets from build stage to nginx html folder
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy built assets to Nginx html directory
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy custom nginx configuration for SPA routing fallback (routing, 404 fallback for SPA)
+# Custom nginx configuration for single-page application (SPA) routing fallback
+# and static asset caching
 RUN echo 'server { \
     listen 80; \
+    server_name _; \
+    root /usr/share/nginx/html; \
+    index index.html; \
     location / { \
-        root /usr/share/nginx/html; \
-        index index.html index.htm; \
         try_files $uri $uri/ /index.html; \
+    } \
+    location /assets/ { \
+        expires 1y; \
+        add_header Cache-Control "public, immutable"; \
     } \
     error_page 500 502 503 504 /50x.html; \
     location = /50x.html { \
