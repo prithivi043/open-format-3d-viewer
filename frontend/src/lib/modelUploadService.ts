@@ -64,7 +64,7 @@ async function localUpload({
 }
 
 async function cloudUpload(opts: UploadModelOptions): Promise<UploadModelResult> {
-  const { requestUploadUrl, uploadFileToS3, confirmUpload } = await import(
+  const { requestUploadUrl, uploadFileToS3, uploadFileLocal, confirmUpload } = await import(
     "../features/models/api/modelApi"
   );
 
@@ -76,14 +76,43 @@ async function cloudUpload(opts: UploadModelOptions): Promise<UploadModelResult>
       size_bytes: opts.file.size,
     });
 
-    await uploadFileToS3(uploadData.upload_url, opts.file, (pct) => {
-      opts.onProgress?.(pct);
-    });
+    if (uploadData.storage_key) {
+      await uploadFileLocal(uploadData.storage_key, opts.file, (pct) => {
+        opts.onProgress?.(pct);
+      });
+    } else if (uploadData.upload_url) {
+      await uploadFileToS3(uploadData.upload_url, opts.file, (pct) => {
+        opts.onProgress?.(pct);
+      });
+    } else {
+      throw new Error("No upload URL or storage key returned by backend");
+    }
 
     await confirmUpload(uploadData.model_id);
 
     // Save to local IndexedDB store as well, so it can be loaded by Viewer
     await localModelStore.saveFile(uploadData.model_id, opts.file);
+
+    // Save cloud model metadata to local storage so the client can list it in the project detail view
+    const cloudModelMetadata = {
+      id: uploadData.model_id,
+      project_id: opts.projectId,
+      filename: opts.file.name,
+      content_type: "application/octet-stream",
+      size_bytes: opts.file.size,
+      status: "ready" as const,
+      created_at: new Date().toISOString(),
+    };
+    try {
+      const current = localStorage.getItem(`local_models_${opts.projectId}`);
+      const list = current ? JSON.parse(current) : [];
+      if (!list.some((m: any) => m.id === uploadData.model_id)) {
+        list.push(cloudModelMetadata);
+        localStorage.setItem(`local_models_${opts.projectId}`, JSON.stringify(list));
+      }
+    } catch (err) {
+      console.error("Failed to save cloud model metadata locally:", err);
+    }
 
     return { modelId: uploadData.model_id, storageType: "cloud" };
   } catch (err) {

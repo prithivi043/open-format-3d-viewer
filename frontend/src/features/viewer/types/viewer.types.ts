@@ -1,3 +1,5 @@
+import type { ProjectRole } from "../../projects/types/project.types";
+
 export type ToolMode =
   | "orbit"
   | "pan"
@@ -12,6 +14,7 @@ export interface ViewerMember {
   id: string;
   fullName: string;
   avatarColor: string;
+  role?: ProjectRole;
 }
 
 export interface IFCNode {
@@ -65,6 +68,8 @@ export interface ViewerState {
   modelTree: IFCNode[];
   /** Real project members loaded from the API after model loads */
   projectMembers: ViewerMember[];
+  userRole: ProjectRole | null;
+  isMembersPanelOpen: boolean;
   annotationModal: {
     isOpen: boolean;
     worldPos: [number, number, number] | null;
@@ -89,6 +94,8 @@ export interface ViewerState {
   toggleNodeExpanded: (nodeId: string) => void;
   setModelTree: (tree: IFCNode[]) => void;
   setProjectMembers: (members: ViewerMember[]) => void;
+  setUserRole: (role: ProjectRole | null) => void;
+  setMembersPanelOpen: (isOpen: boolean) => void;
   setAnnotationModal: (modal: {
     isOpen: boolean;
     worldPos: [number, number, number] | null;
@@ -97,3 +104,4 @@ export interface ViewerState {
     worldNormal?: [number, number, number] | null;
   }) => void;
 }
+

@@ -18,6 +18,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   expandedNodes: new Set(["building", "level1"]),
   modelTree: [],
   projectMembers: [],
+  userRole: null,
+  isMembersPanelOpen: false,
   annotationModal: {
     isOpen: false,
     worldPos: null,
@@ -50,6 +52,9 @@ export const useViewerStore = create<ViewerState>((set) => ({
     }),
   setModelTree: (tree: IFCNode[]) => set({ modelTree: tree }),
   setProjectMembers: (members: ViewerMember[]) => set({ projectMembers: members }),
+  setUserRole: (role) => set({ userRole: role }),
+  setMembersPanelOpen: (isOpen) => set({ isMembersPanelOpen: isOpen }),
   setAnnotationModal: (modal) => set({ annotationModal: modal }),
 }));
+
 

@@ -895,7 +895,7 @@ export function ViewerProvider({ modelId, children }: Props) {
     let active = true;
     let objectUrl: string | null = null;
     let mockInterval: ReturnType<typeof setInterval> | null = null;
-    let fpsInterval: ReturnType<typeof setInterval> | null = null;
+    let animFrameId: number | null = null;
     let handleAnnoDeleteClick: ((e: MouseEvent) => void) | null = null;
     let annoDeleteContainer: HTMLElement | null = null;
 
@@ -1007,6 +1007,11 @@ export function ViewerProvider({ modelId, children }: Props) {
             const target = e.target as HTMLElement;
             const btn = target.closest(".xeokit-annotation-delete");
             if (btn) {
+              const role = useViewerStore.getState().userRole;
+              if (role !== "admin") {
+                alert("Only admins can delete annotations.");
+                return;
+              }
               const annoId = btn.getAttribute("data-anno-id");
               if (annoId) {
                 try {
@@ -1049,7 +1054,10 @@ export function ViewerProvider({ modelId, children }: Props) {
 
           distanceMeasurements.on("contextMenu", (e: any) => {
             e.event.preventDefault();
-            distanceMeasurements.destroyMeasurement(e.measurement.id);
+            const role = useViewerStore.getState().userRole;
+            if (role === "admin" || role === "editor") {
+              distanceMeasurements.destroyMeasurement(e.measurement.id);
+            }
           });
 
           const sectionPlanesPlugin = new SectionPlanesPlugin(viewer as unknown as never) as any;
@@ -1234,15 +1242,18 @@ export function ViewerProvider({ modelId, children }: Props) {
                   });
                 }
               } else if (currentTool === "annotation") {
-                if (hit.worldPos && entityId) {
-                  const normal = hit.worldNormal || [0, 0, 1];
-                  useViewerStore.getState().setAnnotationModal({
-                    isOpen: true,
-                    worldPos: Array.from(hit.worldPos) as [number, number, number],
-                    entityId: entityId,
-                    mockScreenPos: null,
-                    worldNormal: Array.from(normal) as [number, number, number],
-                  });
+                const userRole = useViewerStore.getState().userRole;
+                if (userRole !== "viewer") {
+                  if (hit.worldPos && entityId) {
+                    const normal = hit.worldNormal || [0, 0, 1];
+                    useViewerStore.getState().setAnnotationModal({
+                      isOpen: true,
+                      worldPos: Array.from(hit.worldPos) as [number, number, number],
+                      entityId: entityId,
+                      mockScreenPos: null,
+                      worldNormal: Array.from(normal) as [number, number, number],
+                    });
+                  }
                 }
               } else if (currentTool === "section") {
                 if (hit.worldPos) {
@@ -1340,19 +1351,29 @@ export function ViewerProvider({ modelId, children }: Props) {
 
     initViewer();
 
-    // Poll xeokit's built-in FPS counter (PRD §4.5)
-    fpsInterval = setInterval(() => {
-      const viewer = viewerRef.current;
-      if (viewer) {
-        const currentFps = Math.round((viewer.scene as unknown as { fps?: number }).fps ?? 60);
-        setFps(currentFps);
+    // Active requestAnimationFrame-based real-time FPS counter
+    let lastTime = performance.now();
+    let frameCount = 0;
+
+    const measureFps = () => {
+      if (!active) return;
+      frameCount++;
+      const now = performance.now();
+      if (now - lastTime >= 1000) {
+        const currentFps = Math.round((frameCount * 1000) / (now - lastTime));
+        // Clamp between 1 and 120 FPS
+        setFps(Math.max(1, Math.min(currentFps, 120)));
+        frameCount = 0;
+        lastTime = now;
       }
-    }, 1000);
+      animFrameId = requestAnimationFrame(measureFps);
+    };
+    animFrameId = requestAnimationFrame(measureFps);
 
     return () => {
       active = false;
       if (mockInterval) clearInterval(mockInterval);
-      if (fpsInterval) clearInterval(fpsInterval);
+      if (animFrameId) cancelAnimationFrame(animFrameId);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       if (viewerRef.current) {
         viewerRef.current.destroy();

@@ -20,6 +20,7 @@ export function ViewerToolbar() {
   const { activeTool, setActiveTool } = useViewerStore();
   const { goHome, fitToView, shareView, modelId } = useViewerContext();
   const [isExporting, setIsExporting] = useState(false);
+  const userRole = useViewerStore((s) => s.userRole) || "viewer";
 
   const handleExportBCF = async () => {
     if (!modelId || isExporting) return;
@@ -70,6 +71,20 @@ export function ViewerToolbar() {
       : []),
   ];
 
+  const isToolDisabled = (t: ToolBtn): boolean => {
+    if (t.tool === "measure" && userRole === "viewer") return true;
+    if (t.tool === "annotation" && userRole === "viewer") return true;
+    if (t.label === "Share" && userRole !== "admin") return true;
+    return false;
+  };
+
+  const getToolTitle = (t: ToolBtn): string => {
+    if (t.tool === "measure" && userRole === "viewer") return "Measure (Editor & Admin only)";
+    if (t.tool === "annotation" && userRole === "viewer") return "Annotation (Editor & Admin only)";
+    if (t.label === "Share" && userRole !== "admin") return "Share (Admin only)";
+    return t.label;
+  };
+
   return (
     <div
       className="absolute top-0 left-0 right-0 z-20 flex items-center h-12 px-3 gap-0.5"
@@ -79,25 +94,32 @@ export function ViewerToolbar() {
         backdropFilter: "blur(8px)",
       }}
     >
-      {tools.map((t, i) => (
-        <div key={i} className="flex items-center">
-          {t.divider && (
-            <div className="w-px h-6 mx-2" style={{ background: "rgba(255,255,255,0.1)" }} />
-          )}
-          <button
-            onClick={t.tool ? () => setActiveTool(t.tool!) : t.action}
-            className={`flex flex-col items-center gap-0.5 px-2.5 py-1 rounded transition-all duration-150 min-w-[44px]
-              ${activeTool === t.tool
-                ? "bg-violet-600/30 text-violet-300"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-              }`}
-            title={t.label}
-          >
-            {t.icon}
-            <span className="text-[9px] font-medium tracking-wide uppercase opacity-80">{t.label}</span>
-          </button>
-        </div>
-      ))}
+      {tools.map((t, i) => {
+        const disabled = isToolDisabled(t);
+        return (
+          <div key={i} className="flex items-center">
+            {t.divider && (
+              <div className="w-px h-6 mx-2" style={{ background: "rgba(255,255,255,0.1)" }} />
+            )}
+            <button
+              onClick={disabled ? undefined : t.tool ? () => setActiveTool(t.tool!) : t.action}
+              disabled={disabled}
+              className={`flex flex-col items-center gap-0.5 px-2.5 py-1 rounded transition-all duration-150 min-w-[44px]
+                ${disabled
+                  ? "opacity-35 cursor-not-allowed text-gray-600"
+                  : activeTool === t.tool
+                  ? "bg-violet-600/30 text-violet-300"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+                }`}
+              title={getToolTitle(t)}
+            >
+              {t.icon}
+              <span className="text-[9px] font-medium tracking-wide uppercase opacity-80">{t.label}</span>
+            </button>
+          </div>
+        );
+      })}
+
 
       {/* Right side */}
       <div className="ml-auto flex items-center gap-1">

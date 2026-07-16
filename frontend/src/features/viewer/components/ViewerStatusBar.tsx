@@ -1,30 +1,44 @@
 import { useViewerStore } from "../store/viewerStore";
 import { useViewerContext } from "../context/ViewerProvider";
+import { useAuthStore } from "../../auth/store/authStore";
 
 export function ViewerStatusBar() {
-  const { elementCount, loadingProgress, fps, projectMembers } =
+  const { elementCount, loadingProgress, fps, projectMembers, userRole, isMembersPanelOpen, setMembersPanelOpen } =
     useViewerStore();
 
   const { peerCursors, isConnected } = useViewerContext();
+  const currentUser = useAuthStore((s) => s.user);
 
   // Active peers = people currently in the session (have cursor data)
   const activePeerIds = Object.keys(peerCursors || {});
-  const activePeerCount = activePeerIds.length;
 
-  // Show avatar bubbles for active peers first, then fill from project members
-  const activePeers = activePeerIds
-    .map((id) => {
-      const cursor = peerCursors[id];
-      const member = projectMembers.find((m) => m.id === id);
-      return {
-        id,
-        name: cursor?.name || member?.fullName || `User ${id.slice(0, 4)}`,
-        avatarColor: cursor?.avatarColor || member?.avatarColor || "#7c3aed",
-      };
-    })
-    .slice(0, 5);
+  // Combine projectMembers and currentUser to make sure everyone is represented
+  const participants = [...projectMembers];
+  if (currentUser && !participants.some((p) => p.id === currentUser.id)) {
+    participants.push({
+      id: currentUser.id,
+      fullName: currentUser.full_name,
+      avatarColor: "#3b82f6",
+      role: userRole || "viewer",
+    });
+  }
 
-  const extraCount = Math.max(0, activePeerCount - 5);
+  const isOnline = (memberId: string) => {
+    if (memberId === currentUser?.id) return isConnected;
+    return activePeerIds.includes(memberId);
+  };
+
+  // Sort: Online members first, then Offline members
+  const sortedParticipants = [...participants].sort((a, b) => {
+    const aOnline = isOnline(a.id);
+    const bOnline = isOnline(b.id);
+    if (aOnline && !bOnline) return -1;
+    if (!aOnline && bOnline) return 1;
+    return a.fullName.localeCompare(b.fullName);
+  });
+
+  const displayParticipants = sortedParticipants.slice(0, 6);
+  const extraCount = Math.max(0, sortedParticipants.length - 6);
 
   return (
     <div
@@ -96,76 +110,54 @@ export function ViewerStatusBar() {
 
       {/* Right side: live collaboration status */}
       <div className="ml-auto flex items-center gap-3">
-        {/* WebSocket connection indicator */}
-        <div className="flex items-center gap-1.5">
-          <div
-            className={`w-1.5 h-1.5 rounded-full transition-colors duration-500 ${
-              isConnected ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
-            }`}
-          />
-          <span className="text-[10px] text-gray-500">
-            {isConnected ? "Live" : "Offline"}
-          </span>
-        </div>
+        <span className="text-[10px] text-gray-500 font-medium select-none">
+          Collaboration Room:
+        </span>
 
-        {activePeerCount > 0 && (
-          <>
-            <div
-              className="w-px h-4"
-              style={{ background: "rgba(255,255,255,0.08)" }}
-            />
-
-            {/* Active peer avatars */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center -space-x-1.5">
-                {activePeers.map((peer) => {
-                  const initials = peer.name
-                    .split(" ")
-                    .map((n: string) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2);
-                  return (
-                    <div
-                      key={peer.id}
-                      title={`${peer.name} — viewing now`}
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-2 ring-[#080a1a] cursor-default transition-transform duration-150 hover:scale-110 hover:z-10"
-                      style={{ background: peer.avatarColor }}
-                    >
-                      {initials}
-                    </div>
-                  );
-                })}
-                {extraCount > 0 && (
-                  <div
-                    title={`+${extraCount} more collaborators`}
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-2 ring-[#080a1a] bg-slate-600"
-                  >
-                    +{extraCount}
-                  </div>
-                )}
+        <div
+          onClick={() => setMembersPanelOpen(!isMembersPanelOpen)}
+          className="flex items-center -space-x-1.5 cursor-pointer hover:opacity-80 transition-opacity active:scale-95 duration-100"
+          title="Toggle collaboration participants panel"
+        >
+          {displayParticipants.map((peer) => {
+            const initials = peer.fullName
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .toUpperCase()
+              .slice(0, 2);
+            const online = isOnline(peer.id);
+            const isSelf = peer.id === currentUser?.id;
+            
+            return (
+              <div
+                key={peer.id}
+                title={`${peer.fullName} (${peer.role || "Viewer"})${isSelf ? " (You)" : ""} — ${online ? "Online" : "Offline"}`}
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-2 ring-[#080a1a] cursor-pointer transition-all duration-150 hover:scale-110 hover:z-10 relative
+                  ${online ? "" : "opacity-45 grayscale-[20%]"}`}
+                style={{ background: peer.avatarColor }}
+              >
+                {initials}
+                {/* Online/Offline Status indicator dot */}
+                <div
+                  className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#080a1a] transition-colors duration-500
+                    ${online ? "bg-emerald-400" : "bg-slate-500"}`}
+                />
               </div>
-              <span className="text-[10px] text-gray-400">
-                {activePeerCount} viewing
-              </span>
-            </div>
-          </>
-        )}
+            );
+          })}
 
-        {activePeerCount === 0 && projectMembers.length > 0 && (
-          <>
+          {extraCount > 0 && (
             <div
-              className="w-px h-4"
-              style={{ background: "rgba(255,255,255,0.08)" }}
-            />
-            <span className="text-[10px] text-gray-600">
-              {projectMembers.length}{" "}
-              {projectMembers.length === 1 ? "member" : "members"} · no one else
-              viewing
-            </span>
-          </>
-        )}
+              title={`+${extraCount} more collaborators`}
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-2 ring-[#080a1a] bg-slate-600 select-none"
+            >
+              +{extraCount}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+

@@ -9,11 +9,13 @@ export type WSEvent =
   | "MODEL_PROGRESS"
   | "ANNOTATION_CREATED"
   | "ANNOTATION_UPDATED"
+  | "ANNOTATION_DELETED"
   | "USER_JOINED"
   | "USER_LEFT"
   | "CURSOR_MOVED"
   | "MODEL_SYNC"
-  | "PONG";
+  | "PONG"
+  | "ERROR";
 
 export interface WSMessage {
   event: WSEvent;
@@ -34,23 +36,23 @@ export function useWebSocket(
   const getWsUrl = useCallback(() => {
     // Detect localhost and point directly to port 8001 (Fastify ws-server)
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-      return `ws://localhost:8001/v1/ws?token=${token}&model_id=${modelId || ""}`;
+      return `ws://localhost:8001/connect?token=${token}&model_id=${modelId || ""}`;
     }
 
     const apiBase =
       import.meta.env.VITE_API_BASE_URL ||
-      "https://open-format-3d-viewer.onrender.com/v1";
+      "https://open-format-3d-viewer.onrender.com";
     try {
       const url = new URL(apiBase);
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-      url.pathname = "/v1/ws";
+      url.pathname = "/connect";
       url.searchParams.set("token", token);
       if (modelId) {
         url.searchParams.set("model_id", modelId);
       }
       return url.toString();
     } catch {
-      return `wss://open-format-3d-viewer.onrender.com/v1/ws?token=${token}&model_id=${modelId || ""}`;
+      return `wss://open-format-3d-viewer.onrender.com/connect?token=${token}&model_id=${modelId || ""}`;
     }
   }, [token, modelId]);
 
@@ -93,14 +95,20 @@ export function useWebSocket(
       ws.onopen = () => {
         setIsConnected(true);
         reconnectDelayRef.current = 1000; // Reset backoff
-        // Send join model
-        ws.send(JSON.stringify({ event: "JOIN_MODEL", data: { model_id: modelId } }));
+        // Send join model flat format per PRD
+        ws.send(JSON.stringify({ event: "JOIN_MODEL", model_id: modelId }));
       };
 
       ws.onmessage = (event) => {
         try {
           const parsed = JSON.parse(event.data);
           let eventName = parsed.event;
+
+          // Automatically respond to server PING with PONG
+          if (eventName === "PING") {
+            ws.send(JSON.stringify({ event: "PONG" }));
+            return;
+          }
 
           // Normalize events from backend payload format
           if (eventName === "user:join") {
@@ -146,7 +154,7 @@ export function useWebSocket(
     if (socketRef.current) {
       if (socketRef.current.readyState === WebSocket.OPEN && modelId) {
         socketRef.current.send(
-          JSON.stringify({ event: "LEAVE_MODEL", data: { model_id: modelId } }),
+          JSON.stringify({ event: "LEAVE_MODEL", model_id: modelId }),
         );
       }
       socketRef.current.close();
@@ -160,9 +168,22 @@ export function useWebSocket(
       return;
     }
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ event, data }));
+      // If flat format is required for message types (e.g. CURSOR_MOVE)
+      if (event === "CURSOR_MOVE") {
+        const payload = data as Record<string, unknown>;
+        socketRef.current.send(
+          JSON.stringify({
+            event,
+            model_id: modelId,
+            position: payload.position,
+            normal: payload.normal,
+          }),
+        );
+      } else {
+        socketRef.current.send(JSON.stringify({ event, data }));
+      }
     }
-  }, []);
+  }, [modelId]);
 
   // Connect on mount/modelId change
   useEffect(() => {

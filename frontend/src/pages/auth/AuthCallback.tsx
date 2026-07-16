@@ -64,8 +64,10 @@ export default function AuthCallback() {
 
         const user = await getCurrentUser();
         setUser(user);
+        localStorage.setItem("has_session", "true");
         navigate("/dashboard", { replace: true });
       } catch (error) {
+        localStorage.removeItem("has_session");
         console.error("OAuth callback failed:", error);
         // Clear any partially-stored token so the user gets a clean login.
         setAccessToken(null);

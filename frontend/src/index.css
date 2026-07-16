@@ -132,3 +132,456 @@
   line-height: 1.4;
 }
 
+/* ── Dark Mode Design System Overrides ───────────────────────────────────── */
+
+:root {
+  --transition-speed: 0.25s;
+}
+
+/* Dark mode styling overrides */
+.dark {
+  /* Midnight design system palette */
+  --bg-main: #0b0c10;
+  --bg-surface: #14151f;
+  --bg-surface-elevated: #1f202e;
+  --bg-accent-subtle: #211e4f;
+  
+  --border-color: #222436;
+  --border-color-focus: #4b4d7c;
+  
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --accent-primary: #8b5cf6;
+  --accent-hover: #7c3aed;
+  --accent-text: #a5b4fc;
+}
+
+/* Enable smooth transitions globally for all dark mode properties */
+.dark * {
+  transition-property: background-color, border-color, text-decoration-color, fill, stroke;
+  transition-duration: var(--transition-speed);
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Apply main backgrounds */
+.dark,
+.dark body,
+.dark #root {
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Surface backgrounds */
+.dark .bg-white,
+.dark .bg-slate-50,
+.dark .bg-slate-100,
+.dark .bg-slate-50\/50,
+.dark .bg-\[\#FAF9F6\],
+.dark .bg-\[\#F9F8F6\],
+.dark aside,
+.dark nav,
+.dark header,
+.dark main {
+  background-color: var(--bg-surface) !important;
+}
+
+.dark .bg-slate-100\/50,
+.dark .bg-slate-200\/50,
+.dark .bg-slate-50\/80 {
+  background-color: rgba(20, 21, 31, 0.8) !important;
+}
+
+/* Elevated hover card items */
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover,
+.dark .bg-slate-100:hover,
+.dark .bg-slate-50:hover {
+  background-color: var(--bg-surface-elevated) !important;
+}
+
+/* Text overrides */
+.dark .text-slate-800,
+.dark .text-slate-900,
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-\[\#1a1a1a\],
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6 {
+  color: var(--text-primary) !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400,
+.dark .text-gray-500,
+.dark .text-gray-400,
+.dark .text-slate-500,
+.dark .text-\[\#888\] {
+  color: var(--text-secondary) !important;
+}
+
+/* Border overrides */
+.dark .border,
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300,
+.dark .border-\[\#ede8e0\],
+.dark .border-\[\#ede8e9\],
+.dark .border-\[\#ede8e6\],
+.dark .border-\[\#ede9e2\],
+.dark .border-\[\#f0ebe3\],
+.dark .border-\[\#e5e7eb\],
+.dark .border-b,
+.dark .border-t,
+.dark .border-l,
+.dark .border-r {
+  border-color: var(--border-color) !important;
+}
+
+/* Form element inputs */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: var(--bg-surface-elevated) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: var(--border-color-focus) !important;
+}
+
+/* Selection list items */
+.dark .bg-indigo-50,
+.dark .bg-\[\#f5f0ff\],
+.dark .bg-\[\#EEEDFE\] {
+  background-color: var(--bg-accent-subtle) !important;
+  color: var(--accent-text) !important;
+}
+
+/* Accent borders and text colors */
+.dark .border-indigo-500,
+.dark .border-\[\#534AB7\] {
+  border-color: var(--accent-primary) !important;
+}
+
+.dark .text-indigo-600,
+.dark .text-\[\#534AB7\] {
+  color: var(--accent-text) !important;
+}
+
+.dark .bg-indigo-600,
+.dark .bg-\[\#534AB7\] {
+  background-color: var(--accent-primary) !important;
+  color: #ffffff !important;
+}
+
+.dark .bg-indigo-600:hover,
+.dark .bg-\[\#534AB7\]:hover {
+  background-color: var(--accent-hover) !important;
+}
+
+/* Stats delta and accent badges */
+.dark [style*="background: rgb(245, 243, 255)"],
+.dark [style*="background: #f5f3ff"] {
+  background-color: var(--bg-accent-subtle) !important;
+  color: var(--accent-text) !important;
+  border-color: var(--border-color-focus) !important;
+}
+
+.dark [style*="background: rgb(238, 237, 254)"],
+.dark [style*="background: #EEEDFE"] {
+  background-color: var(--bg-accent-subtle) !important;
+  color: var(--accent-text) !important;
+}
+
+.dark [style*="background: rgb(225, 245, 238)"],
+.dark [style*="background: #e1f5ee"] {
+  background-color: rgba(29, 158, 117, 0.15) !important;
+  color: #34d399 !important;
+}
+
+/* Modals overlays */
+.dark .bg-black\/50,
+.dark .bg-slate-900\/40 {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+/* Shadows, elevation, tooltips */
+.dark .shadow-lg,
+.dark .shadow-xl,
+.dark .shadow-2xl {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ── Inline Style Overrides (style={{...}} in JSX) ──────────────────────── */
+
+/* Inline border styles used across DashboardPage, StatCard, ProjectCard */
+.dark [style*="border-bottom: 1px solid"],
+.dark [style*="border-left: 1px solid"],
+.dark [style*="border-right: 1px solid"],
+.dark [style*="border-top: 1px solid"],
+.dark [style*="border: 1px solid"],
+.dark [style*="border: 0.5px solid"] {
+  border-color: var(--border-color) !important;
+}
+
+/* Main page background */
+.dark .bg-\[\#f8f8fc\] {
+  background-color: var(--bg-main) !important;
+}
+
+/* Inline background color overrides for stat card icon backgrounds */
+.dark [style*="background: #EEEDFE"],
+.dark [style*="background: #e8e4ff"],
+.dark [style*="background: rgb(232, 228, 255)"] {
+  background-color: var(--bg-accent-subtle) !important;
+}
+
+.dark [style*="background: #faeeda"],
+.dark [style*="background: rgb(250, 238, 218)"] {
+  background-color: rgba(186, 117, 23, 0.15) !important;
+}
+
+.dark [style*="background: #e6f1fb"],
+.dark [style*="background: rgb(230, 241, 251)"] {
+  background-color: rgba(55, 138, 221, 0.15) !important;
+}
+
+/* SVG text fills (StorageDonut, charts) */
+.dark svg text[fill="#111827"] {
+  fill: var(--text-primary) !important;
+}
+
+.dark svg text[fill="#9ca3af"] {
+  fill: var(--text-secondary) !important;
+}
+
+.dark svg circle[stroke="#f3f4f6"] {
+  stroke: var(--border-color) !important;
+}
+
+/* Dashboard stat card delta color */
+.dark [style*="color: #9ca3af"] {
+  color: var(--text-secondary) !important;
+}
+
+.dark [style*="color: #534AB7"] {
+  color: var(--accent-text) !important;
+}
+
+/* ── Scrollbar for dark mode ────────────────────────────────────────────── */
+
+.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 999px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+.dark * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+}
+
+/* ── Status Badges ──────────────────────────────────────────────────────── */
+
+.dark .bg-\[\#e1f5ee\] {
+  background-color: rgba(29, 158, 117, 0.15) !important;
+}
+
+.dark .text-\[\#0F6E56\] {
+  color: #34d399 !important;
+}
+
+.dark .bg-\[\#faeeda\] {
+  background-color: rgba(186, 117, 23, 0.15) !important;
+}
+
+.dark .text-\[\#854F0B\] {
+  color: #fbbf24 !important;
+}
+
+/* ── Skeleton / Loading Animations ──────────────────────────────────────── */
+
+.dark .animate-pulse {
+  background-color: var(--bg-surface-elevated) !important;
+}
+
+.dark .animate-pulse > div {
+  background-color: var(--border-color) !important;
+}
+
+/* ── Success / Error / Alert States ─────────────────────────────────────── */
+
+.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+}
+
+.dark .border-emerald-200,
+.dark .border-emerald-300 {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.dark .text-emerald-800,
+.dark .text-emerald-700 {
+  color: #34d399 !important;
+}
+
+.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+.dark .border-red-200,
+.dark .border-red-300 {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.dark .text-red-800,
+.dark .text-red-700 {
+  color: #f87171 !important;
+}
+
+/* ── Auth Pages (Login/Register) ────────────────────────────────────────── */
+
+.dark .bg-gradient-to-br {
+  background-image: none !important;
+  background-color: var(--bg-main) !important;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+
+.dark table,
+.dark thead,
+.dark tbody,
+.dark tr,
+.dark th,
+.dark td {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark th {
+  color: var(--text-secondary) !important;
+}
+
+.dark tbody tr:hover {
+  background-color: var(--bg-surface-elevated) !important;
+}
+
+/* ── Dropdown Menus & Popover Panels ────────────────────────────────────── */
+
+.dark [role="menu"],
+.dark [role="listbox"],
+.dark [role="dialog"] {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark [role="menuitem"]:hover,
+.dark [role="option"]:hover {
+  background-color: var(--bg-surface-elevated) !important;
+}
+
+/* ── Toggle Switch ──────────────────────────────────────────────────────── */
+
+.dark .peer:checked ~ div {
+  background-color: var(--accent-primary) !important;
+}
+
+.dark .bg-slate-200 {
+  background-color: var(--border-color) !important;
+}
+
+/* ── Quick Upload Drop Zone ─────────────────────────────────────────────── */
+
+.dark .bg-\[\#f4f2ff\] {
+  background-color: var(--bg-accent-subtle) !important;
+}
+
+.dark .border-dashed {
+  border-color: var(--border-color) !important;
+}
+
+/* ── Misc text colors ───────────────────────────────────────────────────── */
+
+.dark .text-\[\#6D63E8\] {
+  color: var(--accent-text) !important;
+}
+
+.dark .text-\[\#111827\],
+.dark .text-gray-900 {
+  color: var(--text-primary) !important;
+}
+
+.dark .text-gray-600 {
+  color: var(--text-secondary) !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: var(--bg-surface-elevated) !important;
+}
+
+.dark .bg-gray-100 {
+  background-color: var(--bg-surface-elevated) !important;
+}
+
+.dark .border-gray-200,
+.dark .border-gray-300,
+.dark .border-gray-100 {
+  border-color: var(--border-color) !important;
+}
+
+/* ── Gradient thumbnail cards in dark mode ───────────────────────────────── */
+
+.dark [style*="linear-gradient(135deg,#e8e4ff"] {
+  background: linear-gradient(135deg, #1e1b4b, #2e1065) !important;
+}
+
+.dark [style*="linear-gradient(135deg,#ddf3ec"] {
+  background: linear-gradient(135deg, #0f2e25, #14532d) !important;
+}
+
+.dark [style*="linear-gradient(135deg,#fff5e0"] {
+  background: linear-gradient(135deg, #3b2506, #451a03) !important;
+}
+
+.dark [style*="linear-gradient(135deg,#e0eeff"] {
+  background: linear-gradient(135deg, #0c1b33, #172554) !important;
+}
+
+/* ── Role-based collaboration canvas styling ────────────────────────────── */
+
+.viewer-non-admin .xeokit-annotation-delete {
+  display: none !important;
+}
+
+

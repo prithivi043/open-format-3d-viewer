@@ -131,7 +131,9 @@ export async function getProjectMembers(
 ): Promise<ProjectMemberDetail[]> {
   let serverMembers: MemberDTO[] = [];
   try {
-    serverMembers = await apiClient<MemberDTO[]>(`${BASE}/${projectId}/members`);
+    serverMembers = await apiClient<MemberDTO[]>(`${BASE}/${projectId}/members`, {
+      silent: true,
+    });
   } catch (err) {
     console.warn("Failed to fetch project members from backend, using local simulation:", err);
   }

@@ -68,7 +68,7 @@ function PropertyGroupSection({ group, rows }: { group: string; rows: PropertyRo
 }
 
 function PropertiesPanel() {
-  const { selectedProperties } = useViewerStore();
+  const { selectedProperties, userRole } = useViewerStore();
 
   if (!selectedProperties) {
     return (
@@ -176,24 +176,27 @@ function PropertiesPanel() {
       )}
 
       {/* Add Annotation button */}
-      <div className="px-4 pt-2 pb-3">
-        <button
-          className="w-full py-2 rounded text-[12px] font-medium text-white transition-all flex items-center justify-center gap-2"
-          style={{ background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-          onClick={() => {
-            useViewerStore.getState().setActiveTool("annotation");
-            window.dispatchEvent(new CustomEvent("show-annotation-toast"));
-          }}
-        >
-          <Plus size={13} />
-          Add Annotation
-        </button>
-      </div>
+      {userRole !== "viewer" && (
+        <div className="px-4 pt-2 pb-3">
+          <button
+            className="w-full py-2 rounded text-[12px] font-medium text-white transition-all flex items-center justify-center gap-2"
+            style={{ background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+            onClick={() => {
+              useViewerStore.getState().setActiveTool("annotation");
+              window.dispatchEvent(new CustomEvent("show-annotation-toast"));
+            }}
+          >
+            <Plus size={13} />
+            Add Annotation
+          </button>
+        </div>
+      )}
     </div>
   );
 }
+
 
 function AnnotationCommentsView({ annotationId, status }: { annotationId: string; status: any }) {
   const { modelId } = useViewerContext();
@@ -225,6 +228,8 @@ function AnnotationCommentsView({ annotationId, status }: { annotationId: string
   };
 
   const isClosed = status === "resolved" || status === "closed";
+  const userRole = useViewerStore((s) => s.userRole) || "viewer";
+  const canResolve = userRole === "admin" || userRole === "editor";
 
   return (
     <div className="mt-3 pt-3 border-t border-white/5 space-y-3 cursor-default" onClick={(e) => e.stopPropagation()}>
@@ -235,12 +240,13 @@ function AnnotationCommentsView({ annotationId, status }: { annotationId: string
         </span>
         <button
           onClick={toggleStatus}
-          disabled={updateAnnotationMutation.isPending}
+          disabled={!canResolve || updateAnnotationMutation.isPending}
           className={`px-2 py-0.5 rounded text-[9px] font-semibold transition-all flex items-center gap-1 ${
             isClosed
               ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
               : "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-          }`}
+          } ${!canResolve ? "opacity-35 cursor-not-allowed text-gray-600" : ""}`}
+          title={!canResolve ? "Only editors or admins can resolve issues" : undefined}
         >
           {isClosed ? <HelpCircle size={10} /> : <CheckCircle size={10} />}
           {isClosed ? "Reopen Issue" : "Resolve Issue"}
@@ -268,31 +274,36 @@ function AnnotationCommentsView({ annotationId, status }: { annotationId: string
       </div>
 
       {/* Comment Form */}
-      <form onSubmit={handleSend} className="flex gap-1.5 mt-2">
-        <input
-          type="text"
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Write a comment..."
-          disabled={addCommentMutation.isPending}
-          className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] text-white outline-none focus:border-violet-500 transition-colors"
-        />
-        <button
-          type="submit"
-          disabled={addCommentMutation.isPending || !newComment.trim()}
-          className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded p-1 flex items-center justify-center transition-all"
-        >
-          <Send size={10} />
-        </button>
-      </form>
+      {userRole !== "viewer" ? (
+        <form onSubmit={handleSend} className="flex gap-1.5 mt-2">
+          <input
+            type="text"
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Write a comment..."
+            disabled={addCommentMutation.isPending}
+            className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] text-white outline-none focus:border-violet-500 transition-colors"
+          />
+          <button
+            type="submit"
+            disabled={addCommentMutation.isPending || !newComment.trim()}
+            className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded p-1 flex items-center justify-center transition-all"
+          >
+            <Send size={10} />
+          </button>
+        </form>
+      ) : (
+        <p className="text-[9px] text-gray-500 text-center italic mt-2">
+          Comments read-only for Viewers
+        </p>
+      )}
     </div>
   );
 }
 
-// ─── Annotations List ─────────────────────────────────────────────────────────
 
 function AnnotationsList() {
-  const { annotations, selectedAnnotationId, setSelectedAnnotationId } = useViewerStore();
+  const { annotations, selectedAnnotationId, setSelectedAnnotationId, userRole } = useViewerStore();
   const [filter, setFilter] = useState<"all" | "open" | "closed">("all");
 
   const filtered = annotations.filter((a) => filter === "all" || a.status === filter);
@@ -320,6 +331,7 @@ function AnnotationsList() {
           </button>
         ))}
       </div>
+
 
       <div className="flex-1 overflow-y-auto custom-scroll px-3 pb-3 space-y-2">
         {filtered.length === 0 && (
@@ -359,22 +371,25 @@ function AnnotationsList() {
         ))}
       </div>
 
-      <div className="px-3 pb-3">
-        <button
-          className="w-full py-2 rounded text-[12px] font-medium text-white transition-all flex items-center justify-center gap-2"
-          style={{ background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)" }}
-          onClick={() => {
-            useViewerStore.getState().setActiveTool("annotation");
-            window.dispatchEvent(new CustomEvent("show-annotation-toast"));
-          }}
-        >
-          <Plus size={13} />
-          New Issue
-        </button>
-      </div>
+      {userRole !== "viewer" && (
+        <div className="px-3 pb-3">
+          <button
+            className="w-full py-2 rounded text-[12px] font-medium text-white transition-all flex items-center justify-center gap-2"
+            style={{ background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)" }}
+            onClick={() => {
+              useViewerStore.getState().setActiveTool("annotation");
+              window.dispatchEvent(new CustomEvent("show-annotation-toast"));
+            }}
+          >
+            <Plus size={13} />
+            New Issue
+          </button>
+        </div>
+      )}
     </div>
   );
 }
+
 
 // ─── Right Panel ──────────────────────────────────────────────────────────────
 

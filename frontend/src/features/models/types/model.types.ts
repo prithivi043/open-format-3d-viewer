@@ -8,7 +8,7 @@ export type ModelFormat =
   | "step"
   | "stl";
 
-export type ModelStatus = "uploading" | "processing" | "ready" | "failed";
+export type ModelStatus = "uploading" | "pending" | "processing" | "ready" | "failed";
 
 export interface Model {
   id: string;
@@ -38,6 +38,7 @@ export interface UploadModelPayload {
 export interface UploadUrlResponse {
   upload_url: string;
   model_id: string;
+  storage_key?: string;
 }
 
 export interface Annotation {

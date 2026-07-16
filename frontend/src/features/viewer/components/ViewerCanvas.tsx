@@ -192,6 +192,7 @@ export function ViewerCanvas() {
     addAnnotation,
     annotationModal,
     setAnnotationModal,
+    userRole,
   } = useViewerStore();
 
   const {
@@ -346,7 +347,7 @@ export function ViewerCanvas() {
         setSelectedObjectId(null);
         setSelectedProperties(null);
       }
-    } else if (activeTool === "measure" && containerRef.current) {
+    } else if (activeTool === "measure" && containerRef.current && userRole !== "viewer") {
       const rect = containerRef.current.getBoundingClientRect();
       const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       if (measurePoints.length >= 2) {
@@ -357,7 +358,8 @@ export function ViewerCanvas() {
     } else if (
       activeTool === "annotation" &&
       containerRef.current &&
-      !isRealModel
+      !isRealModel &&
+      userRole !== "viewer"
     ) {
       const rect = containerRef.current.getBoundingClientRect();
       const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
@@ -467,7 +469,7 @@ export function ViewerCanvas() {
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 select-none overflow-hidden"
+      className={`absolute inset-0 select-none overflow-hidden ${userRole !== "admin" ? "viewer-non-admin" : ""}`}
       style={{
         background:
           "radial-gradient(ellipse at 50% 40%, rgba(30,20,60,0.9) 0%, rgba(8,10,26,1) 70%)",

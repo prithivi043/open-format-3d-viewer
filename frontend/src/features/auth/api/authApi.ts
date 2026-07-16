@@ -37,8 +37,14 @@ export function getGoogleAuthUrl(): string {
   return `${base}/v1/auth/google`;
 }
 
+interface AuthResponse {
+  user: User;
+  access_token: string;
+  refresh_token: string;
+}
+
 export async function login(payload: LoginPayload): Promise<User> {
-  const data = await apiClient<{ access_token?: string }>("/auth/login", {
+  const data = await apiClient<AuthResponse>("/auth/login", {
     method: "POST",
     body: payload,
   });
@@ -47,14 +53,25 @@ export async function login(payload: LoginPayload): Promise<User> {
     useAuthStore.getState().setAccessToken(data.access_token);
   }
 
+  localStorage.setItem("has_session", "true");
+  
+  if (data?.user) {
+    return data.user;
+  }
   return getCurrentUser();
 }
 
 export async function register(payload: SignupPayload): Promise<void> {
-  await apiClient<unknown>("/auth/register", {
+  const data = await apiClient<AuthResponse>("/auth/register", {
     method: "POST",
     body: payload,
   });
+
+  if (data?.access_token) {
+    useAuthStore.getState().setAccessToken(data.access_token);
+  }
+
+  localStorage.setItem("has_session", "true");
 }
 
 export async function getCurrentUser(): Promise<User> {
@@ -63,31 +80,62 @@ export async function getCurrentUser(): Promise<User> {
 
 export async function refreshSession(): Promise<User> {
   const url = import.meta.env.DEV ? "/v1/auth/refresh" : getAbsoluteUrl("/auth/refresh");
-  const response = await fetch(url, {
-    method: "POST",
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    throw new Error("Session refresh failed");
+  
+  const headers: Record<string, string> = {};
+  const csrfToken = document.cookie.split("; ").find((c) => c.startsWith("csrf_token="))?.split("=")[1];
+  if (csrfToken) {
+    headers["X-CSRF-Token"] = csrfToken;
   }
 
-  const json = await response.json();
-  const data = json && typeof json === "object" && "data" in json ? json.data : json;
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers,
+    });
 
-  if (data?.access_token) {
-    useAuthStore.getState().setAccessToken(data.access_token);
+    if (!response.ok) {
+      throw new Error("Session refresh failed");
+    }
+
+    const json = await response.json();
+    const data = json && typeof json === "object" && "data" in json ? json.data : json;
+
+    if (data?.access_token) {
+      useAuthStore.getState().setAccessToken(data.access_token);
+    }
+
+    localStorage.setItem("has_session", "true");
+    
+    if (data?.user) {
+      return data.user;
+    }
+    return getCurrentUser();
+  } catch (err) {
+    localStorage.removeItem("has_session");
+    throw err;
   }
-
-  return getCurrentUser();
 }
 
 export async function logoutApi(): Promise<void> {
+  localStorage.removeItem("has_session");
   const url = import.meta.env.DEV ? "/v1/auth/logout" : getAbsoluteUrl("/auth/logout");
+  
+  const headers: Record<string, string> = {};
+  const token = useAuthStore.getState().accessToken;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  const csrfToken = document.cookie.split("; ").find((c) => c.startsWith("csrf_token="))?.split("=")[1];
+  if (csrfToken) {
+    headers["X-CSRF-Token"] = csrfToken;
+  }
+
   try {
     await fetch(url, {
       method: "POST",
       credentials: "include",
+      headers,
     });
   } catch (err) {
     console.error("Logout API request failed:", err);

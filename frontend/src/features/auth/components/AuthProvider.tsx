@@ -7,6 +7,34 @@ const PUBLIC_ROUTES = ["/login", "/register", "/auth/callback"];
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
+    const applyTheme = (themeName: string) => {
+      if (
+        themeName === "dark" ||
+        (themeName === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+      ) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    };
+
+    const savedTheme = localStorage.getItem("user-pref-theme") || "system";
+    applyTheme(savedTheme);
+
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ theme: string }>;
+      if (customEvent.detail && customEvent.detail.theme) {
+        applyTheme(customEvent.detail.theme);
+      }
+    };
+
+    window.addEventListener("preferences-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("preferences-updated", handleUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
     if (PUBLIC_ROUTES.includes(window.location.pathname)) {
       useAuthStore.getState().setLoading(false);
       return;
@@ -35,9 +63,17 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         // Normal browser session: attempt token refresh using the httpOnly
         // refresh_token cookie. Works when frontend and backend share a domain
         // or when using a same-domain proxy (localhost dev server).
+        const hasSession = localStorage.getItem("has_session") === "true";
+        if (!hasSession) {
+          useAuthStore.getState().setUser(null);
+          useAuthStore.getState().setLoading(false);
+          return;
+        }
+
         const user = await refreshSession();
         useAuthStore.getState().setUser(user);
       } catch {
+        localStorage.removeItem("has_session");
         useAuthStore.getState().setUser(null);
       } finally {
         useAuthStore.getState().setLoading(false);

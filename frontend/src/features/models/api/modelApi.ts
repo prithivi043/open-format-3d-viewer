@@ -16,19 +16,63 @@ export async function requestUploadUrl(
 ): Promise<UploadUrlResponse> {
   return apiClient<UploadUrlResponse>("/models/upload", {
     method: "POST",
-    body: JSON.stringify({
+    body: {
       project_id: payload.project_id,
       filename: payload.filename,
       content_type: payload.content_type,
       size_bytes: payload.size_bytes,
-    }),
+    },
   });
 }
 
 export async function confirmUpload(modelId: string): Promise<void> {
   await apiClient<void>(`/models/${modelId}/confirm`, {
     method: "POST",
-    body: JSON.stringify({}),
+    body: {},
+  });
+}
+
+export async function uploadFileLocal(
+  storageKey: string,
+  file: File,
+  onProgress: (pct: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const url = `/v1/models/upload/local?storage_key=${encodeURIComponent(storageKey)}`;
+
+    xhr.open("POST", url);
+    
+    const token = useAuthStore.getState().accessToken;
+    if (token) {
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    }
+    
+    const csrfToken = document.cookie.split("; ").find((c) => c.startsWith("csrf_token="))?.split("=")[1];
+    if (csrfToken) {
+      xhr.setRequestHeader("X-CSRF-Token", csrfToken);
+    }
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const progress = Math.round((event.loaded / event.total) * 100);
+        onProgress(progress);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Local dev upload failed with status ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Network error during local dev upload"));
+    };
+
+    xhr.send(file);
   });
 }
 
@@ -41,13 +85,6 @@ export async function getModelTree(modelId: string): Promise<IFCNode[]> {
 }
 
 export async function getProjectModels(projectId: string): Promise<Model[]> {
-  let serverModels: Model[] = [];
-  try {
-    serverModels = await apiClient<Model[]>(`/projects/${projectId}/models`);
-  } catch (err) {
-    console.warn("Failed to fetch project models from backend, using local simulation:", err);
-  }
-
   let localModels: Model[] = [];
   try {
     const saved = localStorage.getItem(`local_models_${projectId}`);
@@ -58,14 +95,34 @@ export async function getProjectModels(projectId: string): Promise<Model[]> {
     console.error("Failed to parse local models from localStorage:", err);
   }
 
-  const combined = [...serverModels];
-  for (const local of localModels) {
-    if (!combined.some((srv) => srv.id === local.id)) {
-      combined.push(local);
-    }
-  }
+  // Update status for server-side models by querying GET /models/{model_id} in parallel.
+  // This is in strict compliance with the PRD specification which defines GET /models/{model_id}
+  // but does not include any model list endpoints.
+  const updatedModels = await Promise.all(
+    localModels.map(async (model) => {
+      if (model.id.startsWith("local-")) {
+        return model;
+      }
+      try {
+        const serverModel = await apiClient<Model>(`/models/${model.id}`, {
+          silent: true,
+        });
+        return {
+          ...model,
+          status: serverModel.status || model.status,
+          filename: serverModel.filename || model.filename,
+          content_type: serverModel.content_type || model.content_type,
+          size_bytes: serverModel.size_bytes || model.size_bytes,
+          created_at: serverModel.created_at || model.created_at,
+        };
+      } catch (err) {
+        console.warn(`Failed to sync model ${model.id} status with server:`, err);
+        return model;
+      }
+    })
+  );
 
-  return combined;
+  return updatedModels;
 }
 
 export async function deleteModel(modelId: string): Promise<void> {

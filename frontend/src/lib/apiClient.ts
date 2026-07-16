@@ -6,6 +6,7 @@ type ApiOptions = {
   body?: unknown;
   headers?: HeadersInit;
   retry?: boolean;
+  silent?: boolean;
 };
 
 export type ApiResponse<T> = {
@@ -34,9 +35,15 @@ function buildAbsoluteUrl(endpoint: string): string {
 async function refreshToken() {
   try {
     const url = import.meta.env.DEV ? buildUrl("/auth/refresh") : buildAbsoluteUrl("/auth/refresh");
+    const headers: Record<string, string> = {};
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers["X-CSRF-Token"] = csrfToken;
+    }
     const response = await fetch(url, {
       method: "POST",
       credentials: "include",
+      headers,
     });
 
     if (response.ok) {
@@ -83,6 +90,12 @@ function extractErrorMessage(data: unknown, status: number): string {
   return `Request failed (${status})`;
 }
 
+function getCsrfToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.split("; ").find((c) => c.startsWith("csrf_token="));
+  return match ? match.split("=")[1] || null : null;
+}
+
 export async function apiClient<T>(
   endpoint: string,
   options: ApiOptions = {},
@@ -103,6 +116,14 @@ export async function apiClient<T>(
   const accessToken = useAuthStore.getState().accessToken;
   if (accessToken) {
     (requestHeaders as Record<string, string>)["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  // Attach CSRF token on state-changing requests if present
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase())) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      (requestHeaders as Record<string, string>)["X-CSRF-Token"] = csrfToken;
+    }
   }
 
   const fetchOptions: RequestInit = {
@@ -139,7 +160,7 @@ export async function apiClient<T>(
   if (!response.ok) {
     const message = extractErrorMessage(data, response.status);
 
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && !options.silent) {
       console.error("API ERROR:", {
         endpoint,
         status: response.status,
