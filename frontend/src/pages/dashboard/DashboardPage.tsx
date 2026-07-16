@@ -19,12 +19,14 @@ import {
   XCircle,
 } from "lucide-react";
 
-import { useProjects } from "../../features/projects/hooks/useProjects";
+import { useRecentProjects } from "../../features/projects/hooks/useRecentProjects";
+import { useRecentActivity } from "../../features/projects/hooks/useRecentActivity";
 import ProjectModal from "../../features/projects/components/ProjectModal";
 import { useAuthStore } from "../../features/auth/store/authStore";
 import { useUploadModel } from "../../features/models/hooks/useUploadModel";
 import { useUploadStore } from "../../features/models/store/uploadStore";
 import { useDashboardStats } from "../../features/models/hooks/useDashboardStats";
+import { WifiOff, AlertTriangle } from "lucide-react";
 
 interface DashboardProject {
   id: string;
@@ -39,12 +41,6 @@ interface DashboardProject {
   thumbGradient: string;
 }
 
-interface ActivityItem {
-  file: string;
-  action: string;
-  time: string;
-  dotColor: string;
-}
 
 const ACCENT = [
   {
@@ -81,8 +77,6 @@ const STATUS_CLASS: Record<string, string> = {
   Processing: "bg-[#faeeda] text-[#854F0B]",
   Draft: "bg-gray-100 text-gray-500 border border-gray-200",
 };
-
-const ACTIVITY_COLORS = ["#534AB7", "#1D9E75", "#BA7517", "#378ADD", "#E24B4A"];
 
 // ─── Helpers ──────────────────────────────────────────────
 function timeAgo(isoString: string): string {
@@ -338,7 +332,22 @@ export default function DashboardPage() {
   const [quickDone, setQuickDone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: projects = [], isLoading: projectsLoading } = useProjects();
+  const {
+    projects,
+    recentProjects,
+    isLoading: projectsLoading,
+    error: projectsError,
+    isOffline: projectsOffline,
+  } = useRecentProjects();
+
+  const {
+    activity,
+    isLoading: activityLoading,
+    error: activityError,
+    isOffline: activityLoadingOffline, // rename to avoid collision if any
+  } = useRecentActivity();
+
+  const isOffline = projectsOffline || activityLoadingOffline;
 
   const openProjects = () => navigate("/projects");
 
@@ -347,7 +356,7 @@ export default function DashboardPage() {
 
   // Aggregate real model counts and storage by querying each project's model list.
   // The backend ProjectResponse does not return model_count or storage_bytes,
-  // so we must compute these from the actual model records.
+  // so we must compute these from the actual model records to show accurate dashboard metrics.
   const projectIds = useMemo(() => projects.map((p) => p.id), [projects]);
   const {
     totalModels,
@@ -441,7 +450,7 @@ export default function DashboardPage() {
   // ── Dashboard project cards ────────────────────────────
   const dashboardProjects: DashboardProject[] = useMemo(
     () =>
-      projects.slice(0, 4).map((p, i) => {
+      recentProjects.map((p, i) => {
         const accent = ACCENT[i % ACCENT.length] ?? ACCENT[0];
         const icon = ICONS[i % ICONS.length] ?? <Folder size={18} />;
 
@@ -458,29 +467,7 @@ export default function DashboardPage() {
           thumbGradient: accent.thumb,
         };
       }),
-    [projects],
-  );
-
-  // ── Activity feed ──────────────────────────────────────
-  const activity: ActivityItem[] = useMemo(
-    () =>
-      [...projects]
-        .sort(
-          (a, b) =>
-            new Date(b.updatedAt ?? b.createdAt).getTime() -
-            new Date(a.updatedAt ?? a.createdAt).getTime(),
-        )
-        .slice(0, 5)
-        .map((p, i) => ({
-          file: p.name,
-          action:
-            p.updatedAt && p.updatedAt !== p.createdAt
-              ? "Project updated"
-              : "Project created",
-          time: timeAgo(p.updatedAt ?? p.createdAt),
-          dotColor: ACTIVITY_COLORS[i % ACTIVITY_COLORS.length] ?? "#534AB7",
-        })),
-    [projects],
+    [recentProjects],
   );
 
   const formats = ["GLB", "OBJ", "FBX", "IFC", "STEP", "STL"];
@@ -550,6 +537,24 @@ export default function DashboardPage() {
                   >
                     Dismiss
                   </button>
+                </div>
+              )}
+
+              {isOffline && (
+                <div className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-800 flex items-center gap-3 shadow-sm flex-shrink-0 animate-fade-in">
+                  <WifiOff size={16} className="text-amber-600 shrink-0" />
+                  <span>
+                    <strong>Working offline.</strong> You are currently disconnected from the server. Your workspace will sync automatically when your connection is restored.
+                  </span>
+                </div>
+              )}
+
+              {(projectsError || activityError) && (
+                <div className="rounded-2xl border border-red-300 bg-red-50 px-5 py-4 text-sm text-red-800 flex items-center gap-3 shadow-sm flex-shrink-0 animate-fade-in">
+                  <AlertTriangle size={16} className="text-red-600 shrink-0" />
+                  <span>
+                    <strong>Failed to sync workspace:</strong> {projectsError?.message || activityError?.message || "An unexpected error occurred."}
+                  </span>
                 </div>
               )}
 
@@ -704,8 +709,26 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {activity.length === 0 ? (
-                  <div className="flex min-h-[160px] items-center justify-center rounded-2xl bg-gray-50">
+                {activityLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between rounded-2xl border border-gray-100 px-5 py-4 animate-pulse bg-white"
+                      >
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="h-10 w-10 rounded-full bg-gray-100 shrink-0" />
+                          <div className="space-y-2 flex-1">
+                            <div className="h-3 w-1/4 rounded-full bg-gray-100" />
+                            <div className="h-2.5 w-1/2 rounded-full bg-gray-100" />
+                          </div>
+                        </div>
+                        <div className="h-2.5 w-12 rounded-full bg-gray-100 shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                ) : activity.length === 0 ? (
+                  <div className="flex min-h-[160px] items-center justify-center rounded-2xl bg-gray-50 text-gray-400 text-sm">
                     No recent activity
                   </div>
                 ) : (
