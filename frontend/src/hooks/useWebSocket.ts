@@ -30,13 +30,22 @@ export function useWebSocket(
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectDelayRef = useRef(1000);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const token = useAuthStore((s) => s.accessToken) || "mock-token";
+  const token = useAuthStore((s) => s.accessToken);
 
-  // Build the WS URL based on VITE_API_BASE_URL or default
+  // Never attempt a WebSocket connection for local model files (local- prefix)
+  // or when we have no real auth token — both will be rejected by the server
+  // and would cause an infinite reconnect flood in the console.
+  const isLocalModel = Boolean(modelId && modelId.startsWith("local-"));
+  const shouldConnect = Boolean(modelId) && Boolean(token) && !isLocalModel;
+
+  // Build the WS URL based on VITE_API_BASE_URL or default.
+  // NOTE: getWsUrl is only ever called when shouldConnect===true, so token is
+  // guaranteed non-null here; the non-null assertion is safe.
   const getWsUrl = useCallback(() => {
+    const safeToken = token ?? "";
     // Detect localhost and point directly to port 8001 (Fastify ws-server)
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-      return `ws://localhost:8001/connect?token=${token}&model_id=${modelId || ""}`;
+      return `ws://localhost:8001/connect?token=${safeToken}&model_id=${modelId || ""}`;
     }
 
     const apiBase =
@@ -46,7 +55,7 @@ export function useWebSocket(
       const url = new URL(apiBase);
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
       url.pathname = "/connect";
-      url.searchParams.set("token", token);
+      url.searchParams.set("token", safeToken);
       if (modelId) {
         url.searchParams.set("model_id", modelId);
       }
@@ -70,7 +79,7 @@ export function useWebSocket(
   }, []);
 
   const connect = useCallback(() => {
-    if (!modelId) return;
+    if (!shouldConnect) return;
 
     if (isMockModeActive()) {
       Promise.resolve().then(() => {
@@ -140,7 +149,7 @@ export function useWebSocket(
       console.error("Failed to initiate WebSocket connection:", err);
       scheduleReconnect();
     }
-  }, [modelId, getWsUrl, onMessageReceived, scheduleReconnect]);
+  }, [shouldConnect, getWsUrl, onMessageReceived, scheduleReconnect]);
 
   useEffect(() => {
     connectRef.current = connect;
@@ -185,16 +194,18 @@ export function useWebSocket(
     }
   }, [modelId]);
 
-  // Connect on mount/modelId change
+  // Connect on mount / shouldConnect change; clean up on unmount
   useEffect(() => {
+    if (!shouldConnect) return;
     connect();
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, [shouldConnect, connect, disconnect]);
 
-  // Reconnect on focus
+  // Reconnect on window focus (only when connection is expected)
   useEffect(() => {
+    if (!shouldConnect) return;
     const handleFocus = () => {
       if (!isConnected) {
         reconnectDelayRef.current = 1000;
@@ -205,7 +216,7 @@ export function useWebSocket(
     return () => {
       window.removeEventListener("focus", handleFocus);
     };
-  }, [isConnected, connect]);
+  }, [shouldConnect, isConnected, connect]);
 
   return {
     isConnected,

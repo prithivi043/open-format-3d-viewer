@@ -107,6 +107,8 @@ function ViewerMembersSync({ modelId }: { modelId: string }) {
     queryFn: () => getProjectMembers(projectId!),
     enabled: Boolean(projectId),
     staleTime: 1000 * 30,
+    retry: 0,           // getProjectMembers already has its own try/catch fallback
+    throwOnError: false,
   });
 
   // 3) Fetch project details to check owner_id (works for local AND backend models)
@@ -115,6 +117,8 @@ function ViewerMembersSync({ modelId }: { modelId: string }) {
     queryFn: () => getProject(projectId!),
     enabled: Boolean(projectId),
     staleTime: 1000 * 60 * 5,
+    retry: 0,
+    throwOnError: false,
   });
 
   // 4) Push members into viewerStore so ViewerStatusBar / ActiveMembersPanel can read them

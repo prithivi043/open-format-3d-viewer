@@ -104,8 +104,10 @@ function timeAgo(isoString: string): string {
 function formatStorage(bytes: number): { value: string; unit: string } {
   if (!bytes || bytes === 0) return { value: "0", unit: "B" };
   if (bytes < 1_024) return { value: bytes.toFixed(0), unit: "B" };
-  if (bytes < 1_048_576) return { value: (bytes / 1_024).toFixed(1), unit: "KB" };
-  if (bytes < 1_073_741_824) return { value: (bytes / 1_048_576).toFixed(1), unit: "MB" };
+  if (bytes < 1_048_576)
+    return { value: (bytes / 1_024).toFixed(1), unit: "KB" };
+  if (bytes < 1_073_741_824)
+    return { value: (bytes / 1_048_576).toFixed(1), unit: "MB" };
   return { value: (bytes / 1_073_741_824).toFixed(2), unit: "GB" };
 }
 
@@ -379,12 +381,22 @@ export default function DashboardPage() {
   const uploadMutation = useUploadModel(targetProjectId);
   const { progress, isUploading } = useUploadStore();
 
-  const ALLOWED_EXTENSIONS = ["ifc", "glb", "gltf", "fbx", "obj", "step", "stl"];
+  const ALLOWED_EXTENSIONS = [
+    "ifc",
+    "glb",
+    "gltf",
+    "fbx",
+    "obj",
+    "step",
+    "stl",
+  ];
 
   const validateQuickFile = (f: File): boolean => {
     const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      setQuickError("Unsupported format. Use IFC, GLB, GLTF, FBX, OBJ, STEP or STL.");
+      setQuickError(
+        "Unsupported format. Use IFC, GLB, GLTF, FBX, OBJ, STEP or STL.",
+      );
       return false;
     }
     if (f.size > 500 * 1024 * 1024) {
@@ -526,7 +538,8 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-base">🎉</span>
                     <span>
-                      <strong>Logged in successfully!</strong> Welcome to your OpenFormat 3D Workspace.
+                      <strong>Logged in successfully!</strong> Welcome to your
+                      OpenFormat 3D Workspace.
                     </span>
                   </div>
                   <button
@@ -562,8 +575,8 @@ export default function DashboardPage() {
                     statsLoading
                       ? "Counting models…"
                       : totalModels > 0
-                      ? `Across ${totalProjects} project${totalProjects !== 1 ? "s" : ""}`
-                      : "No models yet"
+                        ? `Across ${totalProjects} project${totalProjects !== 1 ? "s" : ""}`
+                        : "No models yet"
                   }
                   deltaPositive={totalModels > 0}
                   icon={<Box size={14} />}
@@ -635,7 +648,11 @@ export default function DashboardPage() {
                   {projectsLoading ? (
                     <div className="col-span-full grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                       {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="bg-white rounded-[10px] overflow-hidden animate-pulse" style={{ border: "0.5px solid #e5e7eb" }}>
+                        <div
+                          key={i}
+                          className="bg-white rounded-[10px] overflow-hidden animate-pulse"
+                          style={{ border: "0.5px solid #e5e7eb" }}
+                        >
                           <div className="h-[82px] bg-gray-100" />
                           <div className="px-3 pt-2.5 pb-3 space-y-2">
                             <div className="h-3 w-3/4 rounded-full bg-gray-100" />
@@ -746,7 +763,9 @@ export default function DashboardPage() {
                 </div>
 
                 <p className="text-[13px] text-gray-600 text-center">
-                  {statsLoading ? "Calculating…" : `${storageFormatted.value} ${storageFormatted.unit} of ${storageQuotaGB} GB used`}
+                  {statsLoading
+                    ? "Calculating…"
+                    : `${storageFormatted.value} ${storageFormatted.unit} of ${storageQuotaGB} GB used`}
                 </p>
               </div>
 
@@ -758,7 +777,9 @@ export default function DashboardPage() {
                 {projects.length === 0 && !projectsLoading ? (
                   <div className="rounded-2xl border border-dashed border-gray-200 p-5 text-center">
                     <Cloud size={22} className="mx-auto mb-2 text-gray-300" />
-                    <p className="text-[12px] text-gray-400 mb-3">Create a project first to upload a model.</p>
+                    <p className="text-[12px] text-gray-400 mb-3">
+                      Create a project first to upload a model.
+                    </p>
                     <button
                       onClick={() => setOpenModal(true)}
                       className="text-[12px] font-medium text-[#534AB7] hover:underline"
@@ -768,8 +789,13 @@ export default function DashboardPage() {
                   </div>
                 ) : quickDone ? (
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center">
-                    <CheckCircle size={22} className="mx-auto mb-2 text-emerald-500" />
-                    <p className="text-[12px] text-emerald-700 font-medium mb-3">Upload complete!</p>
+                    <CheckCircle
+                      size={22}
+                      className="mx-auto mb-2 text-emerald-500"
+                    />
+                    <p className="text-[12px] text-emerald-700 font-medium mb-3">
+                      Upload complete!
+                    </p>
                     <button
                       onClick={resetQuickUpload}
                       className="text-[12px] text-[#534AB7] hover:underline font-medium"
@@ -787,28 +813,38 @@ export default function DashboardPage() {
                         className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-[12px] text-gray-700 focus:border-[#534AB7] focus:outline-none"
                       >
                         {projects.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
                         ))}
                       </select>
                     )}
 
                     {/* Drop zone */}
                     <div
-                      onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragActive(true);
+                      }}
                       onDragLeave={() => setDragActive(false)}
                       onDrop={handleQuickDrop}
-                      onClick={() => !quickFile && fileInputRef.current?.click()}
+                      onClick={() =>
+                        !quickFile && fileInputRef.current?.click()
+                      }
                       className={`rounded-2xl border border-dashed p-5 text-center transition cursor-pointer ${
                         dragActive
                           ? "border-[#534AB7] bg-[#f4f2ff]"
                           : quickFile
-                          ? "border-[#534AB7] bg-[#f4f2ff] cursor-default"
-                          : "border-gray-300 hover:border-[#534AB7] hover:bg-[#EEEDFE]"
+                            ? "border-[#534AB7] bg-[#f4f2ff] cursor-default"
+                            : "border-gray-300 hover:border-[#534AB7] hover:bg-[#EEEDFE]"
                       }`}
                     >
                       {quickFile ? (
                         <div>
-                          <UploadCloud size={20} className="mx-auto mb-1.5 text-[#534AB7]" />
+                          <UploadCloud
+                            size={20}
+                            className="mx-auto mb-1.5 text-[#534AB7]"
+                          />
                           <p className="text-[11px] font-medium text-gray-800 truncate max-w-full px-2">
                             {quickFile.name}
                           </p>
@@ -816,7 +852,10 @@ export default function DashboardPage() {
                             {(quickFile.size / 1024 / 1024).toFixed(1)} MB
                           </p>
                           <button
-                            onClick={(e) => { e.stopPropagation(); resetQuickUpload(); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              resetQuickUpload();
+                            }}
                             className="mt-2 inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-red-500"
                           >
                             <XCircle size={11} /> Remove
@@ -824,9 +863,16 @@ export default function DashboardPage() {
                         </div>
                       ) : (
                         <div>
-                          <Cloud size={22} className="mx-auto mb-2 text-gray-400" />
-                          <p className="text-[12px] text-gray-500">Drop model here</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">or click to browse</p>
+                          <Cloud
+                            size={22}
+                            className="mx-auto mb-2 text-gray-400"
+                          />
+                          <p className="text-[12px] text-gray-500">
+                            Drop model here
+                          </p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">
+                            or click to browse
+                          </p>
                         </div>
                       )}
                     </div>

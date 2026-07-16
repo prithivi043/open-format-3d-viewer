@@ -126,16 +126,25 @@ function saveStoredSimulatedMembers(projectId: string, members: SimulatedMember[
 
 // ── Member management ─────────────────────────────────────────────────────────
 
+import { isMockModeActive } from "../../../lib/mockApi";
+
 export async function getProjectMembers(
   projectId: string,
 ): Promise<ProjectMemberDetail[]> {
   let serverMembers: MemberDTO[] = [];
-  try {
-    serverMembers = await apiClient<MemberDTO[]>(`${BASE}/${projectId}/members`, {
-      silent: true,
-    });
-  } catch (err) {
-    console.warn("Failed to fetch project members from backend, using local simulation:", err);
+  
+  // Since the backend does not support the /projects/{id}/members REST API endpoints
+  // (verified by checking openapi.json), calling them on the real server always returns
+  // 404, causing browser console warnings. We bypass the network call when not running
+  // in mock mode to avoid console clutter.
+  if (isMockModeActive()) {
+    try {
+      serverMembers = await apiClient<MemberDTO[]>(`${BASE}/${projectId}/members`, {
+        silent: true,
+      });
+    } catch (err) {
+      console.warn("Failed to fetch project members from backend, using local simulation:", err);
+    }
   }
 
   // Map server members and ensure project ID is populated
@@ -165,45 +174,50 @@ export async function inviteProjectMember(
   projectId: string,
   payload: InviteMemberPayload,
 ): Promise<ProjectMemberDetail> {
-  try {
-    const raw = await apiClient<MemberDTO>(`${BASE}/${projectId}/members`, {
-      method: "POST",
-      body: payload,
-    });
-    const member = mapMember(raw);
-    member.projectId = projectId;
-    // Emit real-time update
-    emitProjectMemberUpdate(member);
-    return member;
-  } catch (err: any) {
-    // Fallback to client-side simulation for any error (e.g., user not registered, or endpoint not deployed)
-    const userId = `sim-user-${Math.random().toString(36).substring(2, 11)}`;
-    const fullName = payload.email.split("@")[0] || "User";
-    const newSim: SimulatedMember = {
-      projectId,
-      userId,
-      email: payload.email,
-      fullName: fullName.charAt(0).toUpperCase() + fullName.slice(1),
-      role: payload.role,
-    };
-    
-    // Store simulated member persistently in localStorage
-    const sims = getStoredSimulatedMembers(projectId);
-    sims.push(newSim);
-    saveStoredSimulatedMembers(projectId, sims);
-
-    const member = mapMember({
-      user_id: newSim.userId,
-      role: newSim.role,
-      full_name: newSim.fullName,
-      email: newSim.email,
-    });
-    member.projectId = projectId;
-
-    // Emit real-time update for simulated member
-    emitProjectMemberUpdate(member);
-    return member;
+  // Try real backend API only if mock mode is active (mock mode intercepts the call)
+  if (isMockModeActive()) {
+    try {
+      const raw = await apiClient<MemberDTO>(`${BASE}/${projectId}/members`, {
+        method: "POST",
+        body: payload,
+      });
+      const member = mapMember(raw);
+      member.projectId = projectId;
+      // Emit real-time update
+      emitProjectMemberUpdate(member);
+      return member;
+    } catch (err: any) {
+      // Fallback
+    }
   }
+
+  // Fallback to client-side simulation
+  const userId = `sim-user-${Math.random().toString(36).substring(2, 11)}`;
+  const fullName = payload.email.split("@")[0] || "User";
+  const newSim: SimulatedMember = {
+    projectId,
+    userId,
+    email: payload.email,
+    fullName: fullName.charAt(0).toUpperCase() + fullName.slice(1),
+    role: payload.role,
+  };
+  
+  // Store simulated member persistently in localStorage
+  const sims = getStoredSimulatedMembers(projectId);
+  sims.push(newSim);
+  saveStoredSimulatedMembers(projectId, sims);
+
+  const member = mapMember({
+    user_id: newSim.userId,
+    role: newSim.role,
+    full_name: newSim.fullName,
+    email: newSim.email,
+  });
+  member.projectId = projectId;
+
+  // Emit real-time update for simulated member
+  emitProjectMemberUpdate(member);
+  return member;
 }
 
 export async function removeProjectMember(
@@ -219,12 +233,14 @@ export async function removeProjectMember(
     return;
   }
 
-  // Otherwise try real API
-  try {
-    await apiClient<void>(`${BASE}/${projectId}/members/${userId}`, {
-      method: "DELETE",
-    });
-  } catch (err) {
-    console.warn("Delete member API failed, assuming local simulation:", err);
+  // Otherwise try real API only in mock mode
+  if (isMockModeActive()) {
+    try {
+      await apiClient<void>(`${BASE}/${projectId}/members/${userId}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.warn("Delete member API failed, assuming local simulation:", err);
+    }
   }
 }
