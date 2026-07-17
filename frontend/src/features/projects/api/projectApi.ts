@@ -30,6 +30,7 @@ interface MemberDTO {
   role: string;
   full_name?: string | null;
   email?: string | null;
+  created_at?: string;
 }
 
 function mapMember(dto: MemberDTO): ProjectMemberDetail {
@@ -40,7 +41,7 @@ function mapMember(dto: MemberDTO): ProjectMemberDetail {
     email: dto.email ?? "",
     fullName: dto.full_name ?? dto.email ?? `User ${dto.user_id.slice(0, 6)}`,
     role: dto.role as ProjectRole,
-    joinedAt: new Date().toISOString(),
+    joinedAt: dto.created_at ?? new Date().toISOString(),
     avatarColor: avatarColorFor(dto.user_id),
   };
 }

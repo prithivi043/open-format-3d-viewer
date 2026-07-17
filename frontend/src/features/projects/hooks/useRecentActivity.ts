@@ -45,7 +45,8 @@ export function useRecentActivity() {
     queryKey: ["projects"],
     queryFn: getProjects,
     staleTime: 1000 * 30,
-    refetchInterval: 5000, // Poll projects list to keep dashboard fresh
+    refetchInterval: 30000, // Poll projects list every 30s
+    refetchIntervalInBackground: false,
   });
 
   const projectIds = useMemo(() => projects.map((p) => p.id), [projects]);
@@ -57,7 +58,8 @@ export function useRecentActivity() {
       queryFn: () => getProjectModels(id),
       enabled: Boolean(id),
       staleTime: 1000 * 30,
-      refetchInterval: 5000, // Keep model uploads in sync
+      refetchInterval: 30000,
+      refetchIntervalInBackground: false,
     })),
   });
 
@@ -68,7 +70,8 @@ export function useRecentActivity() {
       queryFn: () => getProjectMembers(id),
       enabled: Boolean(id),
       staleTime: 1000 * 30,
-      refetchInterval: 5000, // Keep collaborators in sync
+      refetchInterval: 30000,
+      refetchIntervalInBackground: false,
     })),
   });
 

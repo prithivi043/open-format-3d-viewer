@@ -336,6 +336,7 @@ export function ViewerProvider({ modelId, children }: Props) {
     setSelectedObjectId,
     selectedObjectId,
     annotations: zustandAnnotations,
+    setViewerError,
   } = useViewerStore();
 
   // Fetch real IFC properties from backend for selected element
@@ -665,7 +666,11 @@ export function ViewerProvider({ modelId, children }: Props) {
         }
         case "ANNOTATION_CREATED": {
           const syncData = data.data;
-          if (!isBackendModel && syncData?.annotation) {
+          if (isBackendModel && syncData?.annotation) {
+            queryClient.invalidateQueries({
+              queryKey: ["model-annotations", modelId],
+            });
+          } else if (syncData?.annotation) {
             const anno = syncData.annotation;
             useViewerStore.getState().addAnnotation({
               id: anno.id,
@@ -676,16 +681,16 @@ export function ViewerProvider({ modelId, children }: Props) {
               status: anno.status || "open",
               createdAt: anno.createdAt || new Date().toISOString(),
             });
-          } else {
-            queryClient.invalidateQueries({
-              queryKey: ["model-annotations", modelId],
-            });
           }
           break;
         }
         case "ANNOTATION_UPDATED": {
           const syncData = data.data;
-          if (!isBackendModel && syncData) {
+          if (isBackendModel && syncData) {
+            queryClient.invalidateQueries({
+              queryKey: ["model-annotations", modelId],
+            });
+          } else if (syncData) {
             const store = useViewerStore.getState();
             if (syncData.status === "deleted" && syncData.annotation_id) {
               const filtered = store.annotations.filter((a) => a.id !== syncData.annotation_id);
@@ -696,10 +701,6 @@ export function ViewerProvider({ modelId, children }: Props) {
               );
               store.setAnnotations(updated);
             }
-          } else {
-            queryClient.invalidateQueries({
-              queryKey: ["model-annotations", modelId],
-            });
           }
           break;
         }
@@ -718,15 +719,18 @@ export function ViewerProvider({ modelId, children }: Props) {
         }
         case "MODEL_READY":
           setLoadingProgress(100);
+          queryClient.invalidateQueries({ queryKey: ["model", modelId] });
+          window.dispatchEvent(new CustomEvent("model-ready-reload"));
           break;
         case "MODEL_FAILED":
           console.error("Model conversion failed:", data);
+          setViewerError(data?.data?.message || "Model conversion failed.");
           break;
         default:
           break;
       }
     },
-    [modelId, queryClient, isRealModel, isBackendModel],
+    [],
   );
 
   const { sendMessage, isConnected } = useWebSocket(modelId, onMessageReceived);
@@ -1350,6 +1354,7 @@ export function ViewerProvider({ modelId, children }: Props) {
     }
 
     initViewer();
+    window.addEventListener("model-ready-reload", initViewer);
 
     // Active requestAnimationFrame-based real-time FPS counter
     let lastTime = performance.now();
@@ -1374,6 +1379,7 @@ export function ViewerProvider({ modelId, children }: Props) {
       active = false;
       if (mockInterval) clearInterval(mockInterval);
       if (animFrameId) cancelAnimationFrame(animFrameId);
+      window.removeEventListener("model-ready-reload", initViewer);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       if (viewerRef.current) {
         viewerRef.current.destroy();

@@ -193,6 +193,7 @@ export function ViewerCanvas() {
     annotationModal,
     setAnnotationModal,
     userRole,
+    viewerError,
   } = useViewerStore();
 
   const {
@@ -620,17 +621,21 @@ export function ViewerCanvas() {
       {/* Sleek Custom Toast Popup (Replaces Browser alert() for sharing) */}
       {createPortal(
         <div
-        className={`absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-[#0f172a]/95 px-4 py-2.5 shadow-2xl backdrop-blur-md transition-all duration-300 ${
-          toastVisible
+        className={`absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl border ${viewerError ? "border-red-500/30" : "border-emerald-500/30"} bg-[#0f172a]/95 px-4 py-2.5 shadow-2xl backdrop-blur-md transition-all duration-300 ${
+          toastVisible || viewerError
             ? "translate-y-0 opacity-100"
             : "-translate-y-4 opacity-0 pointer-events-none"
         }`}
       >
-        <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
-          <Check size={12} className="text-emerald-400 font-bold" />
+        <div className={`w-5 h-5 rounded-full ${viewerError ? "bg-red-500/20" : "bg-emerald-500/20"} flex items-center justify-center`}>
+          {viewerError ? (
+            <X size={12} className="text-red-400 font-bold" />
+          ) : (
+            <Check size={12} className="text-emerald-400 font-bold" />
+          )}
         </div>
         <span className="text-xs text-gray-200 font-medium">
-          {toastMessage}
+          {viewerError || toastMessage}
         </span>
       </div>,
       document.body

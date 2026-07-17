@@ -9,7 +9,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
   loadingProgress: 0,
   elementCount: 0,
   fps: 60,
-  onlineCount: 4,
+  viewerError: null,
   selectedProperties: null,
   annotations: [],
   isModelTreeOpen: true,
@@ -55,6 +55,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setUserRole: (role) => set({ userRole: role }),
   setMembersPanelOpen: (isOpen) => set({ isMembersPanelOpen: isOpen }),
   setAnnotationModal: (modal) => set({ annotationModal: modal }),
+  setViewerError: (msg) => set({ viewerError: msg }),
 }));
 
 

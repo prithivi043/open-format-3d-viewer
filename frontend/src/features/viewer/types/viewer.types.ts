@@ -57,7 +57,7 @@ export interface ViewerState {
   loadingProgress: number;
   elementCount: number;
   fps: number;
-  onlineCount: number;
+  viewerError: string | null;
   selectedProperties: ElementProperties | null;
   annotations: AnnotationIssue[];
   isModelTreeOpen: boolean;
@@ -96,6 +96,7 @@ export interface ViewerState {
   setProjectMembers: (members: ViewerMember[]) => void;
   setUserRole: (role: ProjectRole | null) => void;
   setMembersPanelOpen: (isOpen: boolean) => void;
+  setViewerError: (msg: string | null) => void;
   setAnnotationModal: (modal: {
     isOpen: boolean;
     worldPos: [number, number, number] | null;

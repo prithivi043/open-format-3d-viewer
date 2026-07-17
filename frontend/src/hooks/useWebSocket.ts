@@ -39,13 +39,11 @@ export function useWebSocket(
   const shouldConnect = Boolean(modelId) && Boolean(token) && !isLocalModel;
 
   // Build the WS URL based on VITE_API_BASE_URL or default.
-  // NOTE: getWsUrl is only ever called when shouldConnect===true, so token is
-  // guaranteed non-null here; the non-null assertion is safe.
+  // Note: JWT token is now sent securely in the JOIN_MODEL message payload, not the URL
   const getWsUrl = useCallback(() => {
-    const safeToken = token ?? "";
     // Detect localhost and point directly to port 8001 (Fastify ws-server)
     if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-      return `ws://localhost:8001/connect?token=${safeToken}&model_id=${modelId || ""}`;
+      return `ws://localhost:8001/connect?model_id=${modelId || ""}`;
     }
 
     const apiBase =
@@ -55,17 +53,22 @@ export function useWebSocket(
       const url = new URL(apiBase);
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
       url.pathname = "/connect";
-      url.searchParams.set("token", safeToken);
       if (modelId) {
         url.searchParams.set("model_id", modelId);
       }
       return url.toString();
     } catch {
-      return `wss://open-format-3d-viewer.onrender.com/connect?token=${token}&model_id=${modelId || ""}`;
+      return `wss://open-format-3d-viewer.onrender.com/connect?model_id=${modelId || ""}`;
     }
-  }, [token, modelId]);
+  }, [modelId]);
 
   const connectRef = useRef<(() => void) | undefined>(undefined);
+  const intentionalCloseRef = useRef(false);
+
+  const onMessageReceivedRef = useRef(onMessageReceived);
+  useEffect(() => {
+    onMessageReceivedRef.current = onMessageReceived;
+  }, [onMessageReceived]);
 
   const scheduleReconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) return;
@@ -104,8 +107,8 @@ export function useWebSocket(
       ws.onopen = () => {
         setIsConnected(true);
         reconnectDelayRef.current = 1000; // Reset backoff
-        // Send join model flat format per PRD
-        ws.send(JSON.stringify({ event: "JOIN_MODEL", model_id: modelId }));
+        // Send join model flat format per PRD, securely including token
+        ws.send(JSON.stringify({ event: "JOIN_MODEL", model_id: modelId, token }));
       };
 
       ws.onmessage = (event) => {
@@ -128,16 +131,24 @@ export function useWebSocket(
             eventName = "CURSOR_MOVED";
           }
 
-          if (onMessageReceived) {
-            onMessageReceived(eventName as WSEvent, parsed);
+          if (onMessageReceivedRef.current) {
+            onMessageReceivedRef.current(eventName as WSEvent, parsed);
           }
         } catch (err) {
           console.error("Failed to parse WS message:", err);
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         setIsConnected(false);
+        if (intentionalCloseRef.current) return;
+        
+        // Handle explicit auth failures (4001) or other terminal errors
+        if (event.code === 4001) {
+          console.error("WebSocket auth failed (4001). Logging out...");
+          useAuthStore.getState().logout();
+          return;
+        }
         scheduleReconnect();
       };
 
@@ -149,13 +160,14 @@ export function useWebSocket(
       console.error("Failed to initiate WebSocket connection:", err);
       scheduleReconnect();
     }
-  }, [shouldConnect, getWsUrl, onMessageReceived, scheduleReconnect]);
+  }, [shouldConnect, getWsUrl, scheduleReconnect, token, modelId]);
 
   useEffect(() => {
     connectRef.current = connect;
   }, [connect]);
 
   const disconnect = useCallback(() => {
+    intentionalCloseRef.current = true;
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -197,11 +209,23 @@ export function useWebSocket(
   // Connect on mount / shouldConnect change; clean up on unmount
   useEffect(() => {
     if (!shouldConnect) return;
+    intentionalCloseRef.current = false;
     connect();
     return () => {
       disconnect();
     };
   }, [shouldConnect, connect, disconnect]);
+
+  // Client-initiated heartbeat
+  useEffect(() => {
+    if (!isConnected || isMockModeActive()) return;
+    const interval = setInterval(() => {
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({ event: "PING" }));
+      }
+    }, 25000);
+    return () => clearInterval(interval);
+  }, [isConnected]);
 
   // Reconnect on window focus (only when connection is expected)
   useEffect(() => {
