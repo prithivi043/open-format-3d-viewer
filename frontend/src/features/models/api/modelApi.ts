@@ -146,7 +146,7 @@ export async function deleteModel(modelId: string): Promise<void> {
       if (key && key.startsWith("local_models_")) {
         const data = localStorage.getItem(key);
         if (data) {
-          const list = JSON.parse(data) as any[];
+          const list = JSON.parse(data) as Model[];
           const filtered = list.filter((m) => m.id !== modelId);
           if (filtered.length !== list.length) {
             localStorage.setItem(key, JSON.stringify(filtered));

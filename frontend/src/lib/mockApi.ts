@@ -174,13 +174,13 @@ function ensureOwnerMember(projectId: string) {
 
 // ── Main request handler ─────────────────────────────────────────────────────
 
-export async function handleMockRequest(endpoint: string, options: any): Promise<any> {
+export async function handleMockRequest(endpoint: string, options: RequestInit): Promise<unknown> {
   await delay(300);
 
   const method = (options.method || "GET").toUpperCase();
   const normalized = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
-  let body: any = null;
+  let body: unknown = null;
   if (options.body) {
     try {
       body = typeof options.body === "string" ? JSON.parse(options.body) : options.body;
@@ -414,7 +414,7 @@ export async function handleMockRequest(endpoint: string, options: any): Promise
           status: "open",
           created_at: new Date().toISOString(),
         };
-        let annos: any[] = [];
+        let annos: unknown[] = [];
         try { annos = JSON.parse(localStorage.getItem(annoKey) || "[]"); } catch { /**/ }
         annos.push(newAnno);
         localStorage.setItem(annoKey, JSON.stringify(annos));
@@ -466,7 +466,7 @@ export async function handleMockRequest(endpoint: string, options: any): Promise
       const key = localStorage.key(i);
       if (key?.startsWith("mock_annotations_")) {
         try {
-          const annos: any[] = JSON.parse(localStorage.getItem(key) || "[]");
+          const annos: { id: string }[] = JSON.parse(localStorage.getItem(key) || "[]");
           const idx = annos.findIndex((a) => a.id === annoId);
           if (idx !== -1) {
             if (method === "PATCH") {

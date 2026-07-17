@@ -187,7 +187,7 @@ export async function inviteProjectMember(
       // Emit real-time update
       emitProjectMemberUpdate(member);
       return member;
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Fallback
     }
   }

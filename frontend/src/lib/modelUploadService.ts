@@ -106,7 +106,7 @@ async function cloudUpload(opts: UploadModelOptions): Promise<UploadModelResult>
     try {
       const current = localStorage.getItem(`local_models_${opts.projectId}`);
       const list = current ? JSON.parse(current) : [];
-      if (!list.some((m: any) => m.id === uploadData.model_id)) {
+      if (!list.some((m: { id: string }) => m.id === uploadData.model_id)) {
         list.push(cloudModelMetadata);
         localStorage.setItem(`local_models_${opts.projectId}`, JSON.stringify(list));
       }

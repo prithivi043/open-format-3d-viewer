@@ -43,7 +43,7 @@ export function updateLabelLayout() {
         wrapperY: wrapperRect.top,
       };
     })
-    .filter(Boolean) as any[];
+    .filter(Boolean) as unknown[];
 
   if (labelsData.length === 0) return;
 

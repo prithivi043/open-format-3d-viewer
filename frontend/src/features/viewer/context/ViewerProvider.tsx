@@ -274,7 +274,7 @@ function worldToCanvas(
   viewer: ViewerInstance,
   worldPos: [number, number, number],
 ): [number, number] | null {
-  const canvas = (viewer as any).scene?.canvas?.canvas as
+  const canvas = (viewer as unknown as { scene?: { canvas?: { canvas?: HTMLCanvasElement } } }).scene?.canvas?.canvas as
     | HTMLCanvasElement
     | undefined;
   const w = canvas?.clientWidth ?? 800;
@@ -346,7 +346,7 @@ export function ViewerProvider({ modelId, children }: Props) {
     let active = true;
     import("../../models/api/modelApi").then(({ getElementByGuid }) => {
       getElementByGuid(modelId, selectedObjectId)
-        .then((element: any) => {
+        .then((element: Record<string, unknown>) => {
           if (!active) return;
           if (element && element.properties) {
             const attributes: PropertyRow[] = [];
@@ -378,7 +378,7 @@ export function ViewerProvider({ modelId, children }: Props) {
             });
           }
         })
-        .catch((err: any) => {
+        .catch((err: unknown) => {
           console.warn("Failed to load backend properties for element:", err);
         });
     });
@@ -499,7 +499,7 @@ export function ViewerProvider({ modelId, children }: Props) {
 
   // 3. Setup WebSocket connection
   const onMessageReceived = useCallback(
-    (event: WSEvent, data: any) => {
+    (event: WSEvent, data: unknown) => {
       switch (event) {
         case "USER_JOINED": {
           const peerId = data.userId;
@@ -587,7 +587,7 @@ export function ViewerProvider({ modelId, children }: Props) {
               break;
             }
             case "SECTION_PLANE_CREATED": {
-              const sectionPlanesPlugin = sectionPlanesPluginRef.current as any;
+              const sectionPlanesPlugin = sectionPlanesPluginRef.current as unknown;
               if (sectionPlanesPlugin && isRealModel) {
                 if (!sectionPlanesPlugin.sectionPlanes[syncData.id]) {
                   sectionPlanesPlugin.createSectionPlane({
@@ -601,7 +601,7 @@ export function ViewerProvider({ modelId, children }: Props) {
               break;
             }
             case "SECTION_PLANE_CLEARED": {
-              const sectionPlanesPlugin = sectionPlanesPluginRef.current as any;
+              const sectionPlanesPlugin = sectionPlanesPluginRef.current as unknown;
               if (sectionPlanesPlugin && isRealModel) {
                 sectionPlanesPlugin.clear();
               }
@@ -797,7 +797,7 @@ export function ViewerProvider({ modelId, children }: Props) {
 
   // Synchronize annotations to xeokit AnnotationsPlugin when fetched or updated
   useEffect(() => {
-    const plugin = annotationsPluginRef.current as any;
+    const plugin = annotationsPluginRef.current as unknown;
     if (!plugin || !isRealModel || !activeAnnotations) return;
 
     // Clear existing
@@ -838,11 +838,11 @@ export function ViewerProvider({ modelId, children }: Props) {
     const viewer = viewerRef.current;
     if (!viewer) return;
 
-    const distanceCtrl = distanceMeasurementsControlRef.current as any;
+    const distanceCtrl = distanceMeasurementsControlRef.current as unknown;
     if (distanceCtrl) {
       distanceCtrl.deactivate();
     }
-    const sectionPlanes = sectionPlanesPluginRef.current as any;
+    const sectionPlanes = sectionPlanesPluginRef.current as unknown;
     if (sectionPlanes) {
       sectionPlanes.hideControl();
     }
@@ -939,15 +939,15 @@ export function ViewerProvider({ modelId, children }: Props) {
             SectionPlanesPlugin,
           } = xeokit;
           // These plugins exist at runtime but may not be in the TS declarations
-          const GLTFLoaderPlugin = (xeokit as any).GLTFLoaderPlugin;
-          const WebIFCLoaderPlugin = (xeokit as any).WebIFCLoaderPlugin;
+          const GLTFLoaderPlugin = (xeokit as Record<string, unknown>).GLTFLoaderPlugin;
+          const WebIFCLoaderPlugin = (xeokit as Record<string, unknown>).WebIFCLoaderPlugin;
 
           if (!active) return;
 
           const viewer = new Viewer({
             canvasElement: canvasRef.current as HTMLCanvasElement,
             transparent: true,
-          } as any) as unknown as ViewerInstance;
+          } as unknown) as unknown as ViewerInstance;
 
           viewerRef.current = viewer;
 
@@ -976,7 +976,7 @@ export function ViewerProvider({ modelId, children }: Props) {
           });
 
           // Initialize plugins
-          const annotationsPlugin = new (AnnotationsPlugin as any)(viewer, {
+          const annotationsPlugin = new (AnnotationsPlugin as unknown)(viewer, {
             container: canvasRef.current?.parentElement ?? document.body,
             markerHTML: "<div class='xeokit-annotation-marker'>{{glyph}}</div>",
             labelHTML:
@@ -996,10 +996,10 @@ export function ViewerProvider({ modelId, children }: Props) {
               title: "Observation",
               description: "Annotation point",
             },
-          } as any) as any;
+          } as unknown) as unknown;
           annotationsPluginRef.current = annotationsPlugin;
 
-          annotationsPlugin.on("markerClicked", (anno: any) => {
+          annotationsPlugin.on("markerClicked", (anno: { id: string; labelShown: boolean }) => {
             // Dispatch ANNOTATION_SELECTED action to Zustand on pin click
             useViewerStore.getState().setSelectedAnnotationId(anno.id);
             anno.labelShown = !anno.labelShown;
@@ -1039,24 +1039,24 @@ export function ViewerProvider({ modelId, children }: Props) {
           };
           annoDeleteContainer?.addEventListener("click", handleAnnoDeleteClick);
 
-          const distanceMeasurements = new (DistanceMeasurementsPlugin as any)(
+          const distanceMeasurements = new (DistanceMeasurementsPlugin as unknown)(
             viewer,
             { container: canvasRef.current?.parentElement ?? document.body },
-          ) as any;
+          ) as unknown;
           const distanceMeasurementsControl =
-            new DistanceMeasurementsMouseControl(distanceMeasurements as any) as any;
+            new DistanceMeasurementsMouseControl(distanceMeasurements as unknown) as unknown;
           distanceMeasurementsControl.snapToVertex = true;
           distanceMeasurementsControl.snapToEdge = true;
           distanceMeasurementsControlRef.current = distanceMeasurementsControl;
 
-          distanceMeasurements.on("mouseOver", (e: any) => {
+          distanceMeasurements.on("mouseOver", (e: { measurement: { setHighlighted: (v: boolean) => void } }) => {
             e.measurement.setHighlighted(true);
           });
-          distanceMeasurements.on("mouseLeave", (e: any) => {
+          distanceMeasurements.on("mouseLeave", (e: { measurement: { setHighlighted: (v: boolean) => void } }) => {
             e.measurement.setHighlighted(false);
           });
 
-          distanceMeasurements.on("contextMenu", (e: any) => {
+          distanceMeasurements.on("contextMenu", (e: { event: MouseEvent; measurement: { id: string } }) => {
             e.event.preventDefault();
             const role = useViewerStore.getState().userRole;
             if (role === "admin" || role === "editor") {
@@ -1064,7 +1064,7 @@ export function ViewerProvider({ modelId, children }: Props) {
             }
           });
 
-          const sectionPlanesPlugin = new SectionPlanesPlugin(viewer as unknown as never) as any;
+          const sectionPlanesPlugin = new SectionPlanesPlugin(viewer as unknown as never) as unknown;
           sectionPlanesPluginRef.current = sectionPlanesPlugin;
 
           viewer.scene.input.on("doubleclicked", () => {
@@ -1131,7 +1131,7 @@ export function ViewerProvider({ modelId, children }: Props) {
               excludeUnclassifiedObjects: false,
             } as unknown as never) as unknown as LoadableModel;
           } else {
-            const loader = new (XKTLoaderPlugin as any)(viewer, {
+            const loader = new (XKTLoaderPlugin as unknown)(viewer, {
               dataSource: ds,
             });
             model = loader.load({
@@ -1198,7 +1198,7 @@ export function ViewerProvider({ modelId, children }: Props) {
             }
 
             // Route interactions based on current tool mode
-            viewer.scene.input.on("mouseclicked", (coords: any) => {
+            viewer.scene.input.on("mouseclicked", (coords: [number, number] | undefined | null) => {
               if (!active) return;
               if (!coords || coords.length !== 2) return;
               const canvasPos = coords as [number, number];
@@ -1443,7 +1443,7 @@ export function ViewerProvider({ modelId, children }: Props) {
     message: string,
     worldNormal?: [number, number, number],
   ) => {
-    const annotationsPlugin = annotationsPluginRef.current as any;
+    const annotationsPlugin = annotationsPluginRef.current as unknown;
     const viewer = viewerRef.current;
     if (!annotationsPlugin || !viewer) return;
 
@@ -1503,3 +1503,4 @@ export function ViewerProvider({ modelId, children }: Props) {
     </ViewerContext.Provider>
   );
 }
+

@@ -23,7 +23,7 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     Sentry.withScope((scope) => {
-      scope.setExtras(errorInfo as any);
+      scope.setExtras(errorInfo as unknown as Record<string, unknown>);
       const eventId = Sentry.captureException(error);
       this.setState({ eventId });
     });

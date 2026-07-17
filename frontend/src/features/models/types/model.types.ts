@@ -77,7 +77,7 @@ export interface ModelElement {
   guid: string;
   element_type: string | null;
   name: string | null;
-  properties: Record<string, any> | null;
+  properties: Record<string, unknown> | null;
   created_at: string;
 }
 

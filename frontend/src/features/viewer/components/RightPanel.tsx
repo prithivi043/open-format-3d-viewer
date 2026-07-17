@@ -198,7 +198,7 @@ function PropertiesPanel() {
 }
 
 
-function AnnotationCommentsView({ annotationId, status }: { annotationId: string; status: any }) {
+function AnnotationCommentsView({ annotationId, status }: { annotationId: string; status: string }) {
   const { modelId } = useViewerContext();
   const { data: comments, isLoading } = useAnnotationComments(annotationId);
   const addCommentMutation = useCreateAnnotationComment(annotationId);
@@ -262,7 +262,7 @@ function AnnotationCommentsView({ annotationId, status }: { annotationId: string
         {!isLoading && (!comments || comments.length === 0) && (
           <p className="text-[9px] text-gray-600 italic">No comments yet</p>
         )}
-        {comments?.map((c: any) => (
+        {comments?.map((c: { id: string; author_id: string; created_at: string; body: string }) => (
           <div key={c.id} className="bg-white/[0.02] border border-white/5 rounded p-1.5 space-y-0.5">
             <div className="flex justify-between text-[9px] text-gray-500">
               <span className="font-semibold text-gray-300">{getAuthorName(c.author_id)}</span>
