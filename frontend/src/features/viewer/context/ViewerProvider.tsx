@@ -346,7 +346,7 @@ export function ViewerProvider({ modelId, children }: Props) {
     let active = true;
     import("../../models/api/modelApi").then(({ getElementByGuid }) => {
       getElementByGuid(modelId, selectedObjectId)
-        .then((element: Record<string, unknown>) => {
+        .then((element) => {
           if (!active) return;
           if (element && element.properties) {
             const attributes: PropertyRow[] = [];
@@ -499,7 +499,7 @@ export function ViewerProvider({ modelId, children }: Props) {
 
   // 3. Setup WebSocket connection
   const onMessageReceived = useCallback(
-    (event: WSEvent, data: unknown) => {
+    (event: WSEvent, data: { userId?: string; data?: Record<string, unknown> | null; message?: string; percent?: number; progress_pct?: number; [key: string]: unknown }) => {
       switch (event) {
         case "USER_JOINED": {
           const peerId = data.userId;
@@ -587,7 +587,7 @@ export function ViewerProvider({ modelId, children }: Props) {
               break;
             }
             case "SECTION_PLANE_CREATED": {
-              const sectionPlanesPlugin = sectionPlanesPluginRef.current as unknown;
+              const sectionPlanesPlugin = sectionPlanesPluginRef.current as { sectionPlanes: Record<string, unknown>; createSectionPlane: (args: unknown) => void; showControl: (id: string) => void; clear: () => void } | undefined;
               if (sectionPlanesPlugin && isRealModel) {
                 if (!sectionPlanesPlugin.sectionPlanes[syncData.id]) {
                   sectionPlanesPlugin.createSectionPlane({
@@ -601,7 +601,7 @@ export function ViewerProvider({ modelId, children }: Props) {
               break;
             }
             case "SECTION_PLANE_CLEARED": {
-              const sectionPlanesPlugin = sectionPlanesPluginRef.current as unknown;
+              const sectionPlanesPlugin = sectionPlanesPluginRef.current as { sectionPlanes: Record<string, unknown>; createSectionPlane: (args: unknown) => void; showControl: (id: string) => void; clear: () => void } | undefined;
               if (sectionPlanesPlugin && isRealModel) {
                 sectionPlanesPlugin.clear();
               }
@@ -797,7 +797,7 @@ export function ViewerProvider({ modelId, children }: Props) {
 
   // Synchronize annotations to xeokit AnnotationsPlugin when fetched or updated
   useEffect(() => {
-    const plugin = annotationsPluginRef.current as unknown;
+    const plugin = annotationsPluginRef.current as { annotations: Record<string, unknown>; destroyAnnotation: (id: string) => void; createAnnotation: (args: unknown) => void; } | undefined;
     if (!plugin || !isRealModel || !activeAnnotations) return;
 
     // Clear existing
@@ -838,7 +838,7 @@ export function ViewerProvider({ modelId, children }: Props) {
     const viewer = viewerRef.current;
     if (!viewer) return;
 
-    const distanceCtrl = distanceMeasurementsControlRef.current as unknown;
+    const distanceCtrl = distanceMeasurementsControlRef.current as { deactivate: () => void; activate: () => void } | undefined;
     if (distanceCtrl) {
       distanceCtrl.deactivate();
     }
@@ -939,15 +939,15 @@ export function ViewerProvider({ modelId, children }: Props) {
             SectionPlanesPlugin,
           } = xeokit;
           // These plugins exist at runtime but may not be in the TS declarations
-          const GLTFLoaderPlugin = (xeokit as Record<string, unknown>).GLTFLoaderPlugin;
-          const WebIFCLoaderPlugin = (xeokit as Record<string, unknown>).WebIFCLoaderPlugin;
+          const GLTFLoaderPlugin = (xeokit as Record<string, unknown>).GLTFLoaderPlugin as new (...args: unknown[]) => unknown;
+          const WebIFCLoaderPlugin = (xeokit as Record<string, unknown>).WebIFCLoaderPlugin as new (...args: unknown[]) => unknown;
 
           if (!active) return;
 
           const viewer = new Viewer({
             canvasElement: canvasRef.current as HTMLCanvasElement,
             transparent: true,
-          } as unknown) as unknown as ViewerInstance;
+          } as { canvasElement: HTMLCanvasElement; transparent: boolean }) as unknown as ViewerInstance;
 
           viewerRef.current = viewer;
 
@@ -976,7 +976,7 @@ export function ViewerProvider({ modelId, children }: Props) {
           });
 
           // Initialize plugins
-          const annotationsPlugin = new (AnnotationsPlugin as unknown)(viewer, {
+          const annotationsPlugin = new (AnnotationsPlugin as new (...args: unknown[]) => unknown)(viewer, {
             container: canvasRef.current?.parentElement ?? document.body,
             markerHTML: "<div class='xeokit-annotation-marker'>{{glyph}}</div>",
             labelHTML:
@@ -1039,12 +1039,12 @@ export function ViewerProvider({ modelId, children }: Props) {
           };
           annoDeleteContainer?.addEventListener("click", handleAnnoDeleteClick);
 
-          const distanceMeasurements = new (DistanceMeasurementsPlugin as unknown)(
+          const distanceMeasurements = new (DistanceMeasurementsPlugin as new (...args: unknown[]) => unknown)(
             viewer,
             { container: canvasRef.current?.parentElement ?? document.body },
           ) as unknown;
           const distanceMeasurementsControl =
-            new DistanceMeasurementsMouseControl(distanceMeasurements as unknown) as unknown;
+            new DistanceMeasurementsMouseControl(distanceMeasurements as unknown);
           distanceMeasurementsControl.snapToVertex = true;
           distanceMeasurementsControl.snapToEdge = true;
           distanceMeasurementsControlRef.current = distanceMeasurementsControl;
@@ -1064,7 +1064,7 @@ export function ViewerProvider({ modelId, children }: Props) {
             }
           });
 
-          const sectionPlanesPlugin = new SectionPlanesPlugin(viewer as unknown as never) as unknown;
+          const sectionPlanesPlugin = new SectionPlanesPlugin(viewer as unknown as never) as { sectionPlanes: Record<string, unknown>; createSectionPlane: (args: unknown) => void; showControl: (id: string) => void; clear: () => void } | undefined;
           sectionPlanesPluginRef.current = sectionPlanesPlugin;
 
           viewer.scene.input.on("doubleclicked", () => {
@@ -1131,7 +1131,7 @@ export function ViewerProvider({ modelId, children }: Props) {
               excludeUnclassifiedObjects: false,
             } as unknown as never) as unknown as LoadableModel;
           } else {
-            const loader = new (XKTLoaderPlugin as unknown)(viewer, {
+            const loader = new (XKTLoaderPlugin as new (...args: unknown[]) => unknown)(viewer, {
               dataSource: ds,
             });
             model = loader.load({
@@ -1503,4 +1503,5 @@ export function ViewerProvider({ modelId, children }: Props) {
     </ViewerContext.Provider>
   );
 }
+
 

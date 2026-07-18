@@ -6,13 +6,19 @@ RUN npm install -g pnpm
 WORKDIR /app
 
 # Copy package files first to leverage Docker layer caching
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
 
 # Install dependencies using frozen lockfile for deterministic builds
 RUN pnpm install --frozen-lockfile
 
 # Copy the rest of the application files
 COPY . .
+
+# Add build arguments for frontend environment variables
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG VITE_SENTRY_DSN
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
 
 # Build the production bundle
 RUN pnpm build

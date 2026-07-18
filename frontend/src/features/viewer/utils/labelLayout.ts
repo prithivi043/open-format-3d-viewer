@@ -6,6 +6,19 @@
  * apart while drawing a leader line back to their 3D anchor points.
  */
 
+interface LabelData {
+  el: HTMLElement;
+  line: SVGLineElement;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  width: number;
+  height: number;
+  wrapperX: number;
+  wrapperY: number;
+}
+
 export function updateLabelLayout() {
   const wrappers = Array.from(
     document.querySelectorAll(".xeokit-annotation-label-wrapper"),
@@ -41,9 +54,9 @@ export function updateLabelLayout() {
         // The wrapper's absolute screen coordinates
         wrapperX: wrapperRect.left,
         wrapperY: wrapperRect.top,
-      };
+      } as LabelData;
     })
-    .filter(Boolean) as unknown[];
+    .filter(Boolean) as LabelData[];
 
   if (labelsData.length === 0) return;
 
